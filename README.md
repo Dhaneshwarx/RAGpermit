@@ -116,7 +116,12 @@ A leak means a secret string from a document the user cannot read appeared in an
 
 ## Run it (Windows PowerShell)
 
-Install Ollama and start it. Clone the repository, then from its folder:
+Install Ollama and start it. Then clone the repository and open its folder:
+
+    git clone https://github.com/Dhaneshwarx/RAGpermit.git
+    cd RAGpermit
+
+Then, from that folder:
 
     python -m venv .venv
     Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
