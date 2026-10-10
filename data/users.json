@@ -1,0 +1,8 @@
+[
+  {"user_id": "Premkumar",   "department": "Engineering", "role": "Intern",        "clearance": 1},
+  {"user_id": "Deepak",  "department": "Engineering", "role": "Engineer",      "clearance": 2},
+  {"user_id": "Srikanth",  "department": "HR",          "role": "HR Manager",    "clearance": 3},
+  {"user_id": "Yash",  "department": "Finance",     "role": "Finance Head",  "clearance": 2},
+  {"user_id": "Mahasri",  "department": "Legal",       "role": "Legal Counsel", "clearance": 3},
+  {"user_id": "Dhanesh", "department": "Executive",   "role": "CEO",           "clearance": 3}
+]

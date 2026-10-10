@@ -1,0 +1,12 @@
+# Python and tooling
+.venv/
+__pycache__/
+
+# Rebuilt by "python -m src.ingest"
+qdrant_data/
+
+# Runtime audit log: holds questions and document ids, so it is sensitive
+logs/
+
+# Personal working notes (delete this line if you want to publish them)
+PROGRESS.md

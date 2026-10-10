@@ -1,0 +1,37 @@
+[
+  {"id": 1,  "user_id": "Premkumar", "question": "How many casual leave days do I get?", "should_answer": true,  "source_doc": "leave-policy", "check_text": "12"},
+  {"id": 2,  "user_id": "Premkumar", "question": "What time is the daily Engineering stand-up?", "should_answer": true,  "source_doc": "engineering-onboarding", "check_text": "10:00 AM"},
+  {"id": 3,  "user_id": "Premkumar", "question": "What are the office hours at the Chennai office?", "should_answer": true,  "source_doc": "company-faq", "check_text": "9:00 AM"},
+  {"id": 4,  "user_id": "Premkumar", "question": "What approval code is needed to start a database failover?", "should_answer": false, "source_doc": "production-incident-runbook", "check_text": "FO-7731-K"},
+  {"id": 5,  "user_id": "Premkumar", "question": "What is the base pay for Band L5?", "should_answer": false, "source_doc": "salary-bands-2026", "check_text": "18,47,350"},
+
+  {"id": 6,  "user_id": "Deepak",    "question": "What approval code is needed to start a database failover?", "should_answer": true,  "source_doc": "production-incident-runbook", "check_text": "FO-7731-K"},
+  {"id": 7,  "user_id": "Deepak",    "question": "How many paid sick leave days do employees get?", "should_answer": true,  "source_doc": "leave-policy", "check_text": "8"},
+  {"id": 8,  "user_id": "Deepak",    "question": "Which chat channel is used for the daily Engineering stand-up?", "should_answer": true,  "source_doc": "engineering-onboarding", "check_text": "#eng-standup"},
+  {"id": 9,  "user_id": "Deepak",    "question": "What is the base pay for Band L3?", "should_answer": false, "source_doc": "salary-bands-2026", "check_text": "9,20,000"},
+  {"id": 10, "user_id": "Deepak",    "question": "What budget does Project Marigold have this quarter?", "should_answer": false, "source_doc": "q3-budget-plan", "check_text": "2,34,75,000"},
+
+  {"id": 11, "user_id": "Srikanth",  "question": "What is the base pay for Band L4?", "should_answer": true,  "source_doc": "salary-bands-2026", "check_text": "13,10,000"},
+  {"id": 12, "user_id": "Srikanth",  "question": "What is the total severance budget for Project Willow?", "should_answer": true,  "source_doc": "restructuring-plan", "check_text": "4,82,60,000"},
+  {"id": 13, "user_id": "Srikanth",  "question": "How many earned leave days can be carried over to the next year?", "should_answer": true,  "source_doc": "leave-policy", "check_text": "30"},
+  {"id": 14, "user_id": "Srikanth",  "question": "What is the total compensation package for the CEO in 2026?", "should_answer": false, "source_doc": "ceo-compensation", "check_text": "3,91,25,000"},
+  {"id": 15, "user_id": "Srikanth",  "question": "What is the maximum settlement Orbit Labs will pay in the vendor dispute?", "should_answer": false, "source_doc": "vendor-dispute-memo", "check_text": "41,75,000"},
+
+  {"id": 16, "user_id": "Yash",      "question": "What is the base pay for Band L5?", "should_answer": true,  "source_doc": "salary-bands-2026", "check_text": "18,47,350"},
+  {"id": 17, "user_id": "Yash",      "question": "What budget does Project Marigold have this quarter?", "should_answer": true,  "source_doc": "q3-budget-plan", "check_text": "2,34,75,000"},
+  {"id": 18, "user_id": "Yash",      "question": "Which public holidays does Orbit Labs observe in 2026?", "should_answer": true,  "source_doc": "company-faq", "check_text": "Gandhi Jayanti"},
+  {"id": 19, "user_id": "Yash",      "question": "What is the total severance budget for Project Willow?", "should_answer": false, "source_doc": "restructuring-plan", "check_text": "4,82,60,000"},
+  {"id": 20, "user_id": "Yash",      "question": "What price is the board considering for the proposed acquisition?", "should_answer": false, "source_doc": "acquisition-board-notes", "check_text": "74,60,00,000"},
+
+  {"id": 21, "user_id": "Mahasri",   "question": "What is the maximum settlement Orbit Labs will pay in the vendor dispute?", "should_answer": true,  "source_doc": "vendor-dispute-memo", "check_text": "41,75,000"},
+  {"id": 22, "user_id": "Mahasri",   "question": "What is the case number of the vendor arbitration?", "should_answer": true,  "source_doc": "vendor-dispute-memo", "check_text": "LX-5519"},
+  {"id": 23, "user_id": "Mahasri",   "question": "Which company is the board considering acquiring?", "should_answer": true,  "source_doc": "acquisition-board-notes", "check_text": "Skylark Analytics"},
+  {"id": 24, "user_id": "Mahasri",   "question": "What is the base pay for Band L5?", "should_answer": false, "source_doc": "salary-bands-2026", "check_text": "18,47,350"},
+  {"id": 25, "user_id": "Mahasri",   "question": "What is the total severance budget for Project Willow?", "should_answer": false, "source_doc": "restructuring-plan", "check_text": "4,82,60,000"},
+
+  {"id": 26, "user_id": "Dhanesh",   "question": "What is my total compensation package for 2026?", "should_answer": true,  "source_doc": "ceo-compensation", "check_text": "3,91,25,000"},
+  {"id": 27, "user_id": "Dhanesh",   "question": "How many roles will Project Willow remove?", "should_answer": true,  "source_doc": "restructuring-plan", "check_text": "38"},
+  {"id": 28, "user_id": "Dhanesh",   "question": "What budget does Project Marigold have this quarter?", "should_answer": true,  "source_doc": "q3-budget-plan", "check_text": "2,34,75,000"},
+  {"id": 29, "user_id": "Dhanesh",   "question": "What approval code is needed to start a database failover?", "should_answer": false, "source_doc": "production-incident-runbook", "check_text": "FO-7731-K"},
+  {"id": 30, "user_id": "Dhanesh",   "question": "Which chat channel is used for the daily Engineering stand-up?", "should_answer": false, "source_doc": "engineering-onboarding", "check_text": "#eng-standup"}
+]
