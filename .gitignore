@@ -10,3 +10,6 @@ logs/
 
 # Personal working notes (delete this line if you want to publish them)
 PROGRESS.md
+
+# Secret key that signs sign-in tokens: never commit it
+keys/

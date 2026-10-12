@@ -1,0 +1,62 @@
+case_id,expected,expected_sub,description,rule
+ok-01,valid,Srikanth,Fresh token: iat is now and exp is now + 900,all checks pass; iat equal to now is allowed
+ok-02,valid,Deepak,One second left: iat is now - 100 and exp is now + 1,check 7: valid while now is before exp
+ok-03,valid,Yash,Longest allowed life: exp - iat is exactly 3600,check 8: 3600 is allowed
+ok-04,valid,Premkumar,Extra payload claims role=CEO and clearance=3,payload: extra claims are ignored
+ok-05,valid,Mahasri,Extra header field kid and no typ field,details: header fields other than alg are ignored
+ok-06,valid,dhanesh,sub written in lower case,details: sub is returned exactly as written
+ok-07,valid,Dhanesh,Correctly signed token of exactly 2048 characters,details: only more than 2048 is too long
+none-01,no_token,,No token supplied at all,order: no token comes first
+none-02,no_token,,An empty string,details: an empty string means no token
+none-03,no_token,,No token and also no key file,order: no token is judged before the key
+shape-01,malformed,,A token made only of spaces,details: spaces only is malformed and not no_token
+shape-02,malformed,,Two parts: the signature part is dropped,check 1: exactly three parts
+shape-03,malformed,,Four parts: .extra added to a good token,check 1: exactly three parts
+shape-04,malformed,,alg none with an empty signature (the classic attack form),check 1: no part may be empty and this runs before check 3
+shape-05,malformed,,One * inserted in the header part,details: allowed characters only (the Python decoder would skip it)
+shape-06,malformed,,One space inserted in the header part,details: allowed characters only (the Python decoder would skip it)
+shape-07,malformed,,A + or / where the URL-safe - or _ belongs (signature part),details: allowed characters only (+ and / are not base64url)
+shape-08,malformed,,Padding = added to the payload part,details: no = padding
+shape-09,malformed,,A non-ASCII letter (e with an accent) in the signature part,details: allowed characters only and no crash
+shape-10,malformed,,One space before the token,details: the checker does not trim
+shape-11,malformed,,One line break after the token,details: no line breaks and no trimming
+shape-12,malformed,,One line break at the end of the header part,details: no line breaks anywhere (a pattern ending in $ lets this through)
+shape-13,malformed,,Payload part of 5 characters (an impossible base64 length),check 2: valid base64url text
+shape-14,malformed,,Payload is text but not JSON (correctly signed),check 2: JSON
+shape-15,malformed,,Payload bytes are not valid text (correctly signed),check 2: must not crash
+shape-16,malformed,,Payload is a JSON list and not an object (correctly signed),check 2: JSON objects
+shape-17,malformed,,Header is a JSON string and not an object (correctly signed),check 2: JSON objects
+shape-18,malformed,,Correctly signed token of 2049 characters,details: more than 2048 characters is malformed
+alg-01,bad_alg,,alg none but signed with the real key,check 3: alg must be exactly HS256
+alg-02,bad_alg,,alg HS512 genuinely signed with the real key,check 3: alg must be exactly HS256
+alg-03,bad_alg,,alg hs256 in lower case,check 3: alg must be exactly HS256
+alg-04,bad_alg,,Header with no alg field,check 3: alg must be exactly HS256
+sig-01,bad_signature,,Payload changed from Premkumar to Dhanesh after signing,check 4: signature must match
+sig-02,bad_signature,,Signed with a different key,check 4: signature must match
+sig-03,bad_signature,,Header changed after signing (kid added),check 4: signature covers header and payload
+sig-04,bad_signature,,First character of the signature changed,check 4: signature must match
+sig-05,bad_signature,,Last signature character swapped for one with the same bytes,details: exact signature text
+sig-06,bad_signature,,Payload changed to have no sub and the old signature kept,order: no claim is used before the signature passes
+claims-01,bad_claims,,sub is missing,check 5: sub must be non-empty text
+claims-02,bad_claims,,sub is an empty string,check 5: sub must be non-empty text
+claims-03,bad_claims,,sub is null,check 5: sub must be non-empty text
+claims-04,bad_claims,,sub is the number 42,check 5: sub must be non-empty text
+claims-05,bad_claims,,iat is true,check 6: whole numbers only and true is not one
+claims-06,bad_claims,,exp is written with a decimal point (now + 900.0),check 6 and details: a decimal is not a whole number
+claims-07,bad_claims,,exp is written with an exponent (1.7000009e9),check 6 and details: an exponent is not a whole number
+claims-08,bad_claims,,iat is the text 1700000000,check 6: text is not a number
+claims-09,bad_claims,,exp is missing,check 6: whole numbers only
+time-01,not_yet_valid,,iat is one second in the future,check 7: iat must not be in the future
+time-02,expired,,exp is exactly now,check 7: not valid at the moment exp is reached
+time-03,expired,,exp was one second ago,check 7: now must be before exp
+time-04,expired,,Issued 10 years ago and expired yesterday (also too long),order: the time check comes before the lifetime check
+life-01,lifetime_too_long,,Issued 1800 s ago with 1801 s left: life is 3601 though still alive,check 8: a total life above 3600 is refused
+life-02,lifetime_too_long,,Valid for 10 years: exp - iat is 315360000,check 8: a total life above 3600 is refused
+key-01,no_key,,Key file is missing,key: a missing key means no_key
+key-02,no_key,,Key file is empty,key: too short means no_key
+key-03,no_key,,Key file holds 40 spaces and a line break,key: length is counted after trimming
+key-04,no_key,,Key is 31 bytes (token signed with it),key: at least 32 bytes
+key-05,no_key,,Key is 31 bytes plus a line break (32 bytes in the file),key: length is counted after trimming
+key-06,valid,Srikanth,Key is exactly 32 bytes (token signed with it),key: 32 bytes is allowed
+key-07,valid,Srikanth,32-byte key with spaces before it and a tab and CRLF after it,key: trimmed at both ends
+key-08,no_key,,A garbage token and no key file,order: the key is judged before the token checks
