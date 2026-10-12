@@ -14,3 +14,9 @@ def write_audit_entry(entry):
     AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(AUDIT_FILE, "a", encoding="utf-8") as file:
         file.write(line + "\n")
+
+
+def log_auth_failure(reason):
+    # A failed sign-in. Only the status and a short reason code are recorded: never the token,
+    # never a name taken from it, and never the question (policy section 6).
+    write_audit_entry({"status": "auth_failed", "reason": reason})
