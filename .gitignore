@@ -13,3 +13,6 @@ PROGRESS.md
 
 # Secret key that signs sign-in tokens: never commit it
 keys/
+
+# Local backup files
+*.bak

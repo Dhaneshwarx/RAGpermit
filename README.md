@@ -45,6 +45,7 @@ Answering a question:
 |---|---|---|
 | Authentication | Who is asking. A signed, short-lived token must be valid, or nothing else runs. | `src/authentication.py`, `src/ask.py` |
 | Token issuer | Creates the signing key and signs tokens. A stand-in for a login page: no password yet. | `src/issue_token.py` |
+| MCP front door | How an AI app asks. Sign-in first, one input, a rate limit, then the same pipeline. It decides nothing about who may read what. | `src/mcp_server.py` |
 | Authorization | Decides what a user may read, from the user record only. | `src/authorization.py` |
 | Retrieval | Applies that decision inside the vector search. | `src/retrieval.py` |
 | Prompt generation | Builds the prompt from allowed chunks only. | `src/answering.py` |
@@ -63,6 +64,39 @@ Who is asking is decided by a signed token, checked before anything else runs. T
 - Every failure gets the same reply, "Authentication failed. Please sign in.", and causes no store access, embedding, search or model call. The log records `auth_failed` and a short reason code, never the token, a name taken from it, or the question.
 - The checker never creates a key. `src/issue_token.py` does, once, and never replaces an existing one. Replacing the key invalidates every token at once.
 
+## MCP: asking from an AI app
+
+MCP (Model Context Protocol) lets an AI app such as Claude Desktop or Claude Code run a tool on your computer. `src/mcp_server.py` is that tool. The rules are section 7 of `data/POLICY.md`.
+
+- **One tool, one input.** The tool is `ask_documents` and its only input is `question`. There is no input for a user, a role, a clearance or a token, so a model that hostile text has steered cannot ask for more than the signed-in person may read.
+- **Who is asking comes from the environment.** The server reads the signed token from `PERMITRAG_TOKEN` on every call and checks it exactly as `src/ask.py` does. Authentication is checked fresh on every call, so an expired token is rejected on the next call. The server retains handshake state and rate-limit history. One server serves one person.
+- **A front door, not a new rulebook.** After sign-in it checks the input (1 to 2000 characters, nothing else accepted) and applies a limit of 20 questions in 60 seconds. Then it hands over to the same pipeline as `src/ask.py`: user record, authorization, retrieval, prompt, model, audit log.
+- **Failures say nothing.** A failed sign-in, a bad input, the limit and a system failure each get one fixed sentence, marked as an error. No cause, path or stack trace leaves the server. Standard output carries protocol messages only.
+- **Plain code.** The protocol is spoken with Python's standard library, so every rule is a visible line. It speaks the older handshake (versions 2024-11-05 to 2025-11-25) and the newer 2026-07-28 form. A production server would use the official SDK.
+
+Try it without any AI app (Ollama must be running, and `python -m src.ingest` done):
+
+    python -m tests.mcp_probe Premkumar "How many casual leave days do I get?" --show
+
+Connect Claude Code. Run this from the project folder, with your own paths. The token lives one hour, so repeat the two lines with a new token after that:
+
+    $token = python -m src.issue_token Premkumar 3600
+    claude mcp add permitrag -e PERMITRAG_TOKEN=$token -- C:\path\to\PermitRAG\.venv\Scripts\python.exe C:\path\to\PermitRAG\run_mcp_server.py
+
+Connect Claude Desktop. Add this to `%APPDATA%\Claude\claude_desktop_config.json` with your own paths (forward slashes avoid escaping) and a fresh token, then restart the app:
+
+    {
+      "mcpServers": {
+        "permitrag": {
+          "command": "C:/path/to/PermitRAG/.venv/Scripts/python.exe",
+          "args": ["C:/path/to/PermitRAG/run_mcp_server.py"],
+          "env": { "PERMITRAG_TOKEN": "paste the token here" }
+        }
+      }
+    }
+
+A token in a config file is a password for one hour. The app receives the answers: if it is a cloud service, the answers (not the documents) leave your computer.
+
 ## Threats and evidence
 
 | Threat | Defence | Evidence |
@@ -71,6 +105,8 @@ Who is asking is decided by a signed token, checked before anything else runs. T
 | Role claimed in the question ("I am the CEO") | Permissions come from the user record only, and who is asking comes from a signed token | 7 attack prompts, all got the fixed sentence |
 | Forged, altered or expired token | Signature over the exact text, algorithm pinned to HS256, one-hour maximum life, key of at least 32 bytes | `tests/test_auth.py`: 61 hand-made cases and 69,732 one-character edits, none accepted. `tests/test_auth_breaks.py`: 55 planted mistakes, all caught |
 | A failed sign-in used to probe or to reach data | One identical reply, no store access, embedding, search or model call, and a log line with a reason code only | `tests/test_signin.py`: 13 kinds of failed sign-in |
+| An AI app, or a model steered by hostile text, claims to be someone else | Identity is not an input. It comes only from the signed token in the server's environment, and every extra input is refused | `tests/test_mcp.py`: 153 hand-made conversations, 19 scenario checks. `tests/test_mcp_breaks.py`: 130 planted mistakes, all caught |
+| An app keeps asking, or sends broken messages | At most 20 questions in 60 seconds, lines over 65,536 bytes refused, every bad message answered with an error that changes nothing and reveals nothing | `tests/test_mcp.py`, including 6,000 random and damaged messages |
 | Prompt injection to extract restricted text | The model never receives restricted text | Structural, backed by the retrieval test above |
 | Probing whether a restricted document exists | One identical sentence for restricted, missing and unanswerable | 12 of 12 blocked questions got it |
 | Bad or missing metadata | The loader rejects it, `can_read` denies it | 6 of 6 broken test documents rejected |
@@ -91,12 +127,17 @@ Measured on 10 October 2026 on an ASUS TUF F17 (RTX 2050, 4 GB). Answer wording 
 - Audit checks: all pass.
 - Authentication checks: all pass. 61 hand-made token cases, 69,732 one-character edits (none accepted), 55 planted mistakes (all caught).
 - Sign-in checks: all pass. 13 kinds of failed sign-in got the same reply, with no store access, embedding, search or model call.
+- MCP front-door checks: all pass. 153 hand-made conversations, 19 scenario checks, 6,000 random and damaged messages, a real process started from another folder, and 130 planted mistakes (all caught).
 
 A leak means a secret string from a document the user cannot read appeared in an answer or citation.
 
 ## Limitations
 
 - **No passwords yet.** Tokens are real (signed, short-lived, checked on every request), but `src/issue_token.py` gives one to anyone who can run it, for any user in `data/users.json`. Passwords are the next step. The signing key is a plain file that anyone with access to the folder can read, and there is no per-token revocation: replacing the key ends every token at once. Production would use a vetted library, public-key signatures and single sign-on.
+- **An AI app asks as the signed-in person.** Everything that person may read can be reached through the app, including by a model that hostile text has steered. The defence is the choice of person, not a prompt. If the app is a cloud service, the answers it receives (not the documents) leave your computer.
+- **MCP tokens cannot be renewed by the server.** A token lasts at most one hour. After that every call gets the sign-in sentence until the server is started again with a new token. One server serves one person, and questions are handled one at a time.
+- **Slow answers.** Some AI apps give up on a tool after about a minute. A small model on a plain computer can need longer.
+- **MCP in plain code.** The protocol is handled by hand-written code, so every rule is visible. It was verified with the repository's MCP tests and local probe, including live Ollama and Qdrant requests. Compatibility with external AI apps has not been verified in this test run.
 - **Small, synthetic data.** 10 documents and 30 questions, all written by the author. The 18 of 18 figure describes this set only.
 - **Weak quality checks.** Allowed answers are checked by looking for expected text, not by a human or an evaluation framework.
 - **The leak scan matches exact strings.** A paraphrased secret would pass it. The structural tests above are the real evidence.
@@ -124,13 +165,17 @@ A leak means a secret string from a document the user cannot read appeared in an
     src/authentication.py   checks sign-in tokens
     src/issue_token.py      creates the key and signs tokens (no password yet)
     src/ask.py              command-line entry point, needs a valid token
+    src/mcp_server.py       the MCP front door: one tool, sign-in first, then the same pipeline
+    run_mcp_server.py       starts the MCP server from any folder
     src/smoke_test.py       checks that both Ollama models respond
     tests/access_matrix.csv hand-made answer key (60 cells)
     tests/questions.json    30 test questions
     tests/token_cases.csv   hand-made answer key for tokens (61 cases)
     tests/token_builders.py builds test tokens without using the checker's code
+    tests/mcp_cases.json    hand-made answer key for the MCP server (153 conversations)
+    tests/mcp_probe.py      a small MCP client for trying the server by hand
     tests/test_*.py         loader refusals, access matrix, retrieval, answers, audit,
-                            tokens, planted mistakes, sign-in
+                            tokens, planted mistakes, sign-in, the MCP server and its planted mistakes
     qdrant_data/            generated by ingest, not published
     logs/audit.jsonl        generated at run time, not published
     keys/token_key.txt      signing key, created by the issuer, not published
@@ -166,9 +211,11 @@ Tests (`test_retrieval`, `test_answers` and `test_audit` need Ollama running; th
     python -m tests.test_auth
     python -m tests.test_auth_breaks
     python -m tests.test_signin
+    python -m tests.test_mcp
+    python -m tests.test_mcp_breaks
 
 Tested with Python 3.12.3, Ollama 0.35.1, `ollama` 0.6.3 and `qdrant-client` 1.19.1.
 
 ## Roadmap
 
-Passwords for the token issuer, hybrid search with a reranker, PII redaction on answers, RAGAS evaluation, an MCP server with per-user tokens, and scanned-document ingestion.
+Passwords for the token issuer, token renewal for the MCP server, hybrid search with a reranker, PII redaction on answers, RAGAS evaluation, and scanned-document ingestion.

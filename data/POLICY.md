@@ -101,3 +101,59 @@ Details that keep these rules exact:
 - There is no allowance for clock differences, because the issuer and the checker run on the same machine.
 - No claim from the payload is used until the signature has passed.
 - Checks run in this order: no token, then the key, then the validity checks listed above, from top to bottom. The audit reason names the first check that fails: no_token, no_key, malformed (the first two validity checks, the character rule or the length limit), bad_alg, bad_signature, bad_claims (the sub check and the whole-number check), not_yet_valid (iat in the future), expired (exp reached) or lifetime_too_long.
+
+## 7. The MCP front door
+
+MCP (Model Context Protocol) lets an AI app, such as Claude Desktop or Claude Code, run a tool on this computer. This section says what that tool may do. It adds a new way to ask a question. It adds no new way to read a document: sections 1 to 6 apply to every question, whichever door it comes through.
+
+The tool:
+- There is exactly one tool, ask_documents. It takes exactly one input, question: text of 1 to 2000 characters that is not only spaces, tabs and line breaks.
+- The tool, its description and the server's own details are the same for every person. They name no document, department, role or user.
+- The tool contains no permission rule of its own. For every call it does what src/ask.py does, in the same order: sign-in (section 6), then the user record, then the same pipeline of authorization, retrieval, prompt, model and audit log.
+
+Who is asking:
+- Identity comes only from the signed token in the server's own environment variable PERMITRAG_TOKEN. The AI app, the model, the tool's inputs and the text of the question can never supply or change an identity.
+- The token is checked on every call, before anything else of ours runs. Nothing is remembered from an earlier call, so there is no "already signed in": a token that expires while the server is running stops working at that moment.
+- The server serves one person, the owner of the token it was started with. To serve someone else, stop it and start it with that person's token.
+- The server always reads data/, keys/, logs/ and qdrant_data/ from its own project folder, never from the folder it was started in. A key file planted in the start folder is never used.
+
+Order inside a call:
+- A message that is not a valid request, a method that does not exist and a tool that does not exist are answered first, with a protocol error. They run nothing and reveal nothing.
+- Then sign-in. A call that fails sign-in gets the sentence of section 6 whatever else it contains. A bad question, an extra input or a long text does not change that.
+- Then the input is checked, then the rate limit, then the user record, then the pipeline. Only a signed-in call has its input checked, and only a call with good input counts toward the rate limit.
+
+Input:
+- question must be text (not a number, list, object, true, false or null) and must be valid Unicode text.
+- Nothing else is accepted. A user name, a role, a clearance, a token or any other input is refused, and the call changes nothing. It is logged as bad_input with a short reason code, never with the refused text.
+- Refused input gets one fixed sentence, marked as an error.
+
+What comes back:
+- An answer: the answer text and, when there are sources, a line "Sources: ..." naming only chunks the person was allowed to read. This is exactly what src/ask.py prints, without its developer line.
+- Nothing found: the fixed sentence of section 4, word for word. It is the same for a missing document, a restricted one and one that does not answer.
+- A failed sign-in: the fixed sentence of section 6, marked as an error. It is the same for every cause.
+- A failure of the system itself (the user records, the store, the embedding, the model or the audit log): the fixed sentence "Something went wrong on the server, so no answer was produced. Please try again later.", marked as an error. It names no cause and says nothing about documents. (src/ask.py shows the cause on a developer line. The MCP tool has no developer line, because the AI app would pass it on.)
+- Nothing else is ever returned: no token, file path, stack trace, exception name, reason code, user record or status.
+
+Limits:
+- At most 20 questions are attempted in any 60 seconds. The next one gets "Too many questions in a short time. Please wait a minute and try again.", marked as an error, and is logged as rate_limited. This slows down an app that keeps asking, such as a loop gone wrong or a model steered by hostile text.
+- A message longer than 65536 bytes is refused and skipped.
+- A returned answer is cut at 4000 characters. Control characters (the Unicode category Cc, which includes the escape character, DEL and the C1 controls) are removed from it, except the line break and the tab, and so is anything that is not valid Unicode text. The names of sources are cleaned in the same way.
+
+The wire:
+- Standard output carries protocol messages only, one JSON message per line. Everything else (warnings, print statements, diagnostics) goes to standard error, which never holds a token, a question or an answer.
+- Every request is answered exactly once. A notification is never answered. A message that is not valid JSON, is not an object or has the wrong shape gets a JSON-RPC error and changes nothing. The server exits when its input closes.
+- The server speaks both generations of the protocol: the older one, which opens with an initialize request (versions 2024-11-05, 2025-03-26, 2025-06-18 and 2025-11-25), and the newer one (2026-07-28), which opens with server/discover and puts the protocol version and the client's capabilities in every request. A request belongs to the newer generation if it carries the protocol version in its metadata. Anything else is served only after an initialize was answered. The only thing the server remembers between requests is whether that happened. It never remembers who is asking.
+
+Decision: the server uses only Python's standard library and speaks the protocol in plain code.
+Reason: this project is for learning, and each rule above is then a visible line that can be tested. A production server would use the official SDK.
+
+Decision: the tool has no input that names a person, a role or a clearance, and the tool description names no document.
+Reason: anything the model can fill in, hostile text can fill in too. Identity is not an input.
+
+Limits that code cannot remove:
+- The AI app asks as the signed-in person. Everything that person may read can be reached through the app, including by a model that hostile text in a web page or a document has steered. The defence is the choice of person: start the server with someone whose clearance you are willing to hand to that app. A sentence in a prompt is not a defence.
+- When the AI app is a cloud service, the answers it receives travel to that service. The documents themselves are not sent, only the answers to the questions asked.
+- A token lasts at most one hour and the server cannot get a new one. After that, every call gets the sign-in sentence until the server is started again with a new token.
+- Until passwords exist (section 6), anyone who can run the issuer can start this server as any person in data/users.json.
+- Requests are handled one at a time. A cancellation sent while a question is being answered is read only after the answer was sent, and the late answer is ignored by the app.
+- Some AI apps give up on a tool after about a minute, and a small model on a plain computer can need longer. The app then shows an error instead of the answer.
