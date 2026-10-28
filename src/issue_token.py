@@ -1,8 +1,8 @@
 # THE ISSUER: creates the secret key (once) and signs sign-in tokens.   (data/POLICY.md, section 6)
 #
-# This is a stand-in for a login page. It does not ask for a password yet, so anybody who can
-# run it can get a token for any user in data/users.json. That is the known limit written in
-# the policy. Passwords are a later step.
+# The CLI verifies a password before issuing a token.
+# issue_token() remains a trusted internal signing helper.
+# Local access to the signing key or code can bypass the CLI login.
 #
 # Usage:   python -m src.issue_token <user_id> [seconds]
 #          seconds = how long the token lives, 1 to 3600 (default 900, which is 15 minutes)
@@ -19,6 +19,12 @@ from pathlib import Path
 
 import src.authentication as authentication
 from src.authorization import load_users
+
+
+import getpass
+import warnings
+from src.credentials import check_credentials
+from src.audit import log_auth_failure, write_audit_entry
 
 DEFAULT_LIFETIME_SECONDS = 900
 
@@ -81,35 +87,60 @@ def issue_token(user_id, lifetime=DEFAULT_LIFETIME_SECONDS, now=None, key_path=N
     return token
 
 
+def login_failed():
+    try:
+        log_auth_failure("password_login_failed")
+    except Exception:
+        pass
+    print(authentication.AUTH_FAILED_MESSAGE, file=sys.stderr)
+    return 1
+
+
 def main():
     arguments = sys.argv[1:]
     if len(arguments) not in (1, 2):
         print("Usage: python -m src.issue_token <user_id> [seconds]", file=sys.stderr)
         return 2
     user_id = arguments[0]
-
     lifetime = DEFAULT_LIFETIME_SECONDS
-    if len(arguments) == 2:
-        if not (arguments[1].isascii() and arguments[1].isdigit()):
-            print("seconds must be a whole number from 1 to " + str(authentication.MAX_LIFETIME_SECONDS), file=sys.stderr)
-            return 2
-        lifetime = int(arguments[1])
 
-    # A typo should fail here with a clear message, not later with a confusing refusal.
-    users, _ = load_users()
-    if user_id not in users:
-        print("Unknown user_id " + repr(user_id) + ". Known users: " + ", ".join(sorted(users)), file=sys.stderr)
-        return 1
+    if len(arguments) == 2:
+        value = arguments[1]
+        if not (value.isascii() and value.isdigit() and len(value) <= 4):
+            print("seconds must be a whole number from 1 to 3600", file=sys.stderr)
+            return 2
+        lifetime = int(value)
+    if not 1 <= lifetime <= authentication.MAX_LIFETIME_SECONDS:
+        print("seconds must be a whole number from 1 to 3600", file=sys.stderr)
+        return 2
 
     try:
-        if create_key_if_missing():
-            print("Created a new secret key in " + str(authentication.KEY_PATH) + " (never commit it).", file=sys.stderr)
+        # Hidden input only: never accept a password as a command argument.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", getpass.GetPassWarning)
+            password = getpass.getpass("Password: ")
+
+        users, rejected = load_users()
+        password_ok = check_credentials(user_id, password)
+        del password
+        if rejected or user_id not in users or not password_ok:
+            return login_failed()
+    except (EOFError, KeyboardInterrupt, getpass.GetPassWarning):
+        return login_failed()
+    except (OSError, ValueError, TypeError, RecursionError):
+        return login_failed()
+
+    try:
+        # The signing helper is a trusted internal operation.
+        # The public command reaches it only after password verification.
         token = issue_token(user_id, lifetime)
-    except (ValueError, RuntimeError, OSError) as error:
-        print("No token issued: " + str(error), file=sys.stderr)
+        # Withhold the token if its successful issuance cannot be logged.
+        write_audit_entry({"status": "login_success", "user_id": user_id})
+    except (OSError, ValueError, RuntimeError):
+        print("No token issued: login could not be completed.", file=sys.stderr)
         return 1
 
-    print("Token for " + user_id + ", valid for " + str(lifetime) + " seconds.", file=sys.stderr)
+    print("Token valid for " + str(lifetime) + " seconds.", file=sys.stderr)
     print(token)
     return 0
 

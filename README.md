@@ -44,7 +44,7 @@ Answering a question:
 | Stage | What it does | Where |
 |---|---|---|
 | Authentication | Who is asking. A signed, short-lived token must be valid, or nothing else runs. | `src/authentication.py`, `src/ask.py` |
-| Token issuer | Creates the signing key and signs tokens. A stand-in for a login page: no password yet. | `src/issue_token.py` |
+| Token issuer | Verifies a local password, signs a short-lived token, and withholds it if audit logging fails. | `src/issue_token.py`, `src/credentials.py`, `src/passwords.py` |
 | MCP front door | How an AI app asks. Sign-in first, one input, a rate limit, then the same pipeline. It decides nothing about who may read what. | `src/mcp_server.py` |
 | Authorization | Decides what a user may read, from the user record only. | `src/authorization.py` |
 | Retrieval | Applies that decision inside the vector search. | `src/retrieval.py` |
@@ -64,6 +64,19 @@ Who is asking is decided by a signed token, checked before anything else runs. T
 - Every failure gets the same reply, "Authentication failed. Please sign in.", and causes no store access, embedding, search or model call. The log records `auth_failed` and a short reason code, never the token, a name taken from it, or the question.
 - The checker never creates a key. `src/issue_token.py` does, once, and never replaces an existing one. Replacing the key invalidates every token at once.
 
+### Local password setup and login
+
+A trusted local administrator creates initial credentials with `python -m src.setup_password <user_id>`. There is no default password. Setup accepts only known users with valid user records, asks for the password twice, and refuses to overwrite existing credentials.
+
+- Passwords contain 15-128 characters. Spaces and case are preserved exactly.
+- Credentials use PBKDF2-HMAC-SHA256 with 600,000 iterations, a random 16-byte salt, and a 32-byte derived hash. Password comparisons use `hmac.compare_digest`.
+- Records live under `keys/passwords/`, which is excluded by the existing `keys/` Git ignore rule. They contain a user ID and hashing metadata, never a plaintext password.
+- `python -m src.issue_token <user_id> [seconds]` asks for a hidden password, checks the credentials and current user records, and issues a token only on success. It does not accept passwords as command arguments.
+- Failed login returns the same authentication-failure message and attempts to log `password_login_failed`. Successful issuance must log `login_success` before the token is printed; a logging failure withholds the token.
+- `tests.mcp_probe` uses the password-protected issuer before starting the MCP server.
+
+Hidden input normally displays no letters or stars. Run each interactive command separately and wait for its prompt before entering a password. See the Windows input limitation below for the unresolved behavior observed during local verification.
+
 ## MCP: asking from an AI app
 
 MCP (Model Context Protocol) lets an AI app such as Claude Desktop or Claude Code run a tool on your computer. `src/mcp_server.py` is that tool. The rules are section 7 of `data/POLICY.md`.
@@ -74,7 +87,7 @@ MCP (Model Context Protocol) lets an AI app such as Claude Desktop or Claude Cod
 - **Failures say nothing.** A failed sign-in, a bad input, the limit and a system failure each get one fixed sentence, marked as an error. No cause, path or stack trace leaves the server. Standard output carries protocol messages only.
 - **Plain code.** The protocol is spoken with Python's standard library, so every rule is a visible line. It speaks the older handshake (versions 2024-11-05 to 2025-11-25) and the newer 2026-07-28 form. A production server would use the official SDK.
 
-Try it without any AI app (Ollama must be running, and `python -m src.ingest` done):
+Try it without any AI app after setting up the user's password (Ollama must be running, and `python -m src.ingest` done). The probe asks for that password:
 
     python -m tests.mcp_probe Premkumar "How many casual leave days do I get?" --show
 
@@ -129,11 +142,21 @@ Measured on 10 October 2026 on an ASUS TUF F17 (RTX 2050, 4 GB). Answer wording 
 - Sign-in checks: all pass. 13 kinds of failed sign-in got the same reply, with no store access, embedding, search or model call.
 - MCP front-door checks: all pass. 153 hand-made conversations, 19 scenario checks, 6,000 random and damaged messages, a real process started from another folder, and 130 planted mistakes (all caught).
 
-A leak means a secret string from a document the user cannot read appeared in an answer or citation.
+### Verification on 28 October 2026
+
+The local rerun passed the access matrix (60 pairs, 27 allowed), authentication (61 cases and 69,732 rejected token edits), all 55 authentication mutations, sign-in, MCP (153 conversations, 19 scenarios, 6,000 damaged/random inputs), and all 130 MCP mutations. Retrieval checked 276 user-chunk pairs with no mismatches; all 18 allowed questions found their sources. Answer tests found the expected text in all 18 allowed answers, the fixed refusal in all 12 blocked answers, and refusals for all 7 attack prompts, with no reported errors or detected leaks. Audit checks passed.
+
+Password tests also passed: 8 hashing tests, 8 setup tests, and 9 login tests. A live authenticated MCP call returned 12 casual leave days with the `leave-policy / Casual leave` source and exited with code 0.
+
+That live call used a temporary input workaround: PowerShell masked input supplied the password to the issuer's normal credential checks and audit flow, then the resulting token was used by a small MCP client. The unmodified interactive password prompt and complete interactive probe flow did not pass this session; see Limitations. This was not a fresh-clone or external AI-client test of the password update.
+
+A leak in these results means a secret string from a document the user cannot read appeared in an answer or citation.
 
 ## Limitations
 
-- **No passwords yet.** Tokens are real (signed, short-lived, checked on every request), but `src/issue_token.py` gives one to anyone who can run it, for any user in `data/users.json`. Passwords are the next step. The signing key is a plain file that anyone with access to the folder can read, and there is no per-token revocation: replacing the key ends every token at once. Production would use a vetted library, public-key signatures and single sign-on.
+- **Local trust boundary.** The CLI now checks passwords, but anyone with access to the signing key or control of the application code can bypass that CLI. Initial password setup is a trusted administrator operation, not public registration. Windows filesystem permissions protect credential files; Git ignore rules do not enforce access control. There is no per-token revocation: replacing the key ends every token at once. Production would use a vetted authentication library and managed identity or single sign-on.
+- **Windows interactive input remains unresolved.** During the 28 October verification, Python's hidden prompt repeatedly received empty entries; other attempts received text. The cause has not been established. Stored credentials and token issuance worked with a temporary PowerShell input workaround, but ordinary interactive setup/login and the full probe must be rechecked before claiming the Windows login experience works end to end.
+- **Password lifecycle is limited.** There is no supported password-reset command, login-attempt rate limit, account lockout, or multifactor authentication. Changing a password does not revoke already-issued tokens.
 - **An AI app asks as the signed-in person.** Everything that person may read can be reached through the app, including by a model that hostile text has steered. The defence is the choice of person, not a prompt. If the app is a cloud service, the answers it receives (not the documents) leave your computer.
 - **MCP tokens cannot be renewed by the server.** A token lasts at most one hour. After that every call gets the sign-in sentence until the server is started again with a new token. One server serves one person, and questions are handled one at a time.
 - **Slow answers.** Some AI apps give up on a tool after about a minute. A small model on a plain computer can need longer.
@@ -163,7 +186,10 @@ A leak means a secret string from a document the user cannot read appeared in an
     src/answering.py        prompt, model call, fixed refusal
     src/audit.py            append-only request log
     src/authentication.py   checks sign-in tokens
-    src/issue_token.py      creates the key and signs tokens (no password yet)
+    src/issue_token.py      verifies a password, signs a token, logs issuance
+    src/passwords.py        password hashing and verification
+    src/credentials.py      local credential storage
+    src/setup_password.py   trusted initial setup; preserves existing credentials
     src/ask.py              command-line entry point, needs a valid token
     src/mcp_server.py       the MCP front door: one tool, sign-in first, then the same pipeline
     run_mcp_server.py       starts the MCP server from any folder
@@ -179,6 +205,7 @@ A leak means a secret string from a document the user cannot read appeared in an
     qdrant_data/            generated by ingest, not published
     logs/audit.jsonl        generated at run time, not published
     keys/token_key.txt      signing key, created by the issuer, not published
+    keys/passwords/         local password hashes and salts, not published
 
 ## Run it (Windows PowerShell)
 
@@ -196,10 +223,13 @@ Then, from that folder:
     ollama pull bge-m3
     ollama pull qwen3.5:4b
     python -m src.ingest
+    python -m src.setup_password Premkumar
     $env:PERMITRAG_TOKEN = python -m src.issue_token Premkumar
     python -m src.ask "How many casual leave days do I get?"
 
-The first command creates the signing key (`keys/token_key.txt`, never published) if it is missing, and prints a token that lives 15 minutes. The second uses the token. Sign out with `Remove-Item Env:PERMITRAG_TOKEN`.
+Run these commands one at a time. Password setup is needed once per user: choose a private 15-128 character password and enter it twice. It refuses to replace an existing credential record. The issuer then asks for that password, creates the signing key (`keys/token_key.txt`, never published) if missing, and returns a token valid for 15 minutes. Only continue to `src.ask` if issuance succeeds. Sign out with `Remove-Item Env:PERMITRAG_TOKEN`.
+
+The Windows interactive-input issue described above remains open. Do not treat the successful automated tests as verification of these interactive steps on every terminal.
 
 Tests (`test_retrieval`, `test_answers` and `test_audit` need Ollama running; the others work offline):
 
@@ -213,9 +243,12 @@ Tests (`test_retrieval`, `test_answers` and `test_audit` need Ollama running; th
     python -m tests.test_signin
     python -m tests.test_mcp
     python -m tests.test_mcp_breaks
+    python -m unittest -v tests.test_passwords
+    python -m unittest -v tests.test_setup_password
+    python -m unittest -v tests.test_password_login
 
 Tested with Python 3.12.3, Ollama 0.35.1, `ollama` 0.6.3 and `qdrant-client` 1.19.1.
 
 ## Roadmap
 
-Passwords for the token issuer, token renewal for the MCP server, hybrid search with a reranker, PII redaction on answers, RAGAS evaluation, and scanned-document ingestion.
+Resolve and reverify Windows interactive password entry, add password reset and login-attempt controls, token renewal for the MCP server, hybrid search with a reranker, PII redaction on answers, RAGAS evaluation, and scanned-document ingestion.

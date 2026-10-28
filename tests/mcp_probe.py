@@ -11,7 +11,7 @@
 #     --show   also print every message, in both directions
 #
 # What it does:
-#     1. makes a sign-in token for that person (src/issue_token.py, valid for 15 minutes)
+#     1. asks for a password through src.issue_token and receives a 15-minute token
 #     2. starts the server with the token in its environment, and nowhere else
 #     3. says hello (initialize), asks for the tool list, asks the question
 #     4. closes the server's input, which is how an AI app says goodbye, and waits for it to stop
@@ -112,13 +112,26 @@ def main(arguments):
         return 2
     user_id, question = arguments
 
-    sys.path.insert(0, str(PROJECT_ROOT))
-    from src.issue_token import issue_token   # imported here so that "usage" works without the project's packages
-
+    # Use the password-protected CLI; never bypass login with the signing helper.
+    # Only stdout is captured. The hidden password prompt uses the terminal.
     try:
-        token = issue_token(user_id, 900)
-    except (ValueError, RuntimeError) as error:
-        say("Could not make a token:", error)
+        login = subprocess.run(
+            [sys.executable, "-m", "src.issue_token", user_id, "900"],
+            cwd=PROJECT_ROOT,
+            stdout=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+        )
+    except (OSError, KeyboardInterrupt):
+        say("Login could not be completed.")
+        return 1
+
+    if login.returncode != 0:
+        say("No MCP server started: login failed.")
+        return 1
+    token = login.stdout.strip()
+    if not token:
+        say("No MCP server started: no token received.")
         return 1
 
     server = ServerProcess(token, show)

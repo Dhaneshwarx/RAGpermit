@@ -22,6 +22,7 @@ import ollama
 import src.ask as ask
 import src.audit as audit
 import src.authentication as authentication
+import src.credentials as credentials
 import src.issue_token as issue_token
 from src.answering import REFUSAL
 from src.authentication import AUTH_FAILED_MESSAGE
@@ -92,7 +93,10 @@ def run_issuer(arguments):
     # Runs `python -m src.issue_token <arguments>`. Returns (exit code, standard output, standard error).
     out, err = io.StringIO(), io.StringIO()
     with mock.patch.object(sys, "argv", ["issue_token"] + arguments), contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-        code = issue_token.main()
+        with mock.patch.object(issue_token.getpass, "getpass",
+                               return_value="Temporary sign-in passphrase!"):
+            with mock.patch.object(issue_token, "write_audit_entry"), mock.patch.object(issue_token, "log_auth_failure"):
+                code = issue_token.main()
     return code, out.getvalue(), err.getvalue()
 
 
@@ -114,13 +118,19 @@ def main():
         stack.enter_context(mock.patch.object(ask, "open_store", fake_open_store))
         stack.enter_context(mock.patch.object(ollama, "embed", fake_embed))
         stack.enter_context(mock.patch.object(ollama, "chat", fake_chat))
+        stack.enter_context(mock.patch.object(
+            credentials, "CREDENTIALS_DIR", folder / "passwords"))
+        for name in users:
+            credentials.create_credentials(
+                name, "Temporary sign-in passphrase!")
 
         # 1. The issuer creates the key once. Its token is the only thing on standard output.
         assert not key_path.exists()
         code, out, err = run_issuer(["Premkumar", "600"])
         token = out.strip()
         assert code == 0 and out == token + "\n", "standard output must be the token and nothing else"
-        assert "Created a new secret key" in err and token not in err
+        assert key_path.exists(), "successful login did not create the key"
+        assert token not in err, "token appeared in standard error"
         assert len(authentication.load_key(key_path)) >= 32
         assert authentication.authenticate(token, key_path=key_path) == ("Premkumar", None)
         header_text, payload_text, _ = token.split(".")

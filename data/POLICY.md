@@ -87,7 +87,21 @@ When sign-in succeeds, the sub value goes to the user lookup like any other user
 
 Decision: tokens are made and checked with Python's standard library (HMAC-SHA256), in plain code, so every rule above is a visible line.
 Reason: this project is for learning, and a visible check is easier to test.
-Limit: until passwords are added, anyone who can run the issuer can get a token for any user. Production would use a vetted library, public-key signatures and single sign-on.
+Limit: the CLI requires a password, but access to the signing key or control of the application code can bypass it. Initial credential setup is a trusted local administrator operation. Production would use a vetted authentication library and managed identity or single sign-on.
+
+### Password-protected token issuance
+
+- Setup accepts only a known user when all user records are valid. The password is entered twice through hidden input and both entries must match exactly. Visible-input fallback or cancellation stops setup. Existing credentials are never overwritten.
+- A password must contain 15-128 characters. Case and spaces are preserved; nothing is trimmed or normalized. It is encoded as UTF-8 for hashing.
+- Each password uses PBKDF2-HMAC-SHA256 with 600,000 iterations, a fresh random 16-byte salt, and a 32-byte derived hash. Verification compares derived hashes with `hmac.compare_digest`.
+- Credential records contain the user ID and the algorithm, iterations, salt, and hash. They live under `keys/passwords/` using a SHA-256 digest of the user ID as the filename. Plaintext passwords are not stored or logged. The entire `keys/` folder is ignored by Git; local filesystem permissions must protect it.
+- The public issuer validates its arguments before prompting. It requires a hidden password, valid user records, an existing user, and matching credentials before calling the signing helper. Missing, unreadable, malformed, oversized, or mismatched credential records deny login. Passwords are not accepted as command arguments.
+- Password-login failure returns the same authentication-failure sentence and attempts to log `auth_failed` with reason `password_login_failed`. A failure to write that denial log never permits login.
+- Successful issuance must write `login_success` with the validated user ID before releasing a token. If signing or success logging fails, no token is returned. Passwords and tokens must not appear in audit logs.
+- The MCP probe uses this password-protected issuer. Document permissions continue to come from user records, never from the password or token claims.
+- There is no supported password-reset command, password-login rate limit, account lockout, or multifactor authentication. Existing tokens remain valid until expiry or signing-key replacement even if password credentials change.
+
+Implementation status: automated password tests passed on 28 October 2026. Windows interactive input repeatedly produced empty entries during manual verification; the cause remains unresolved. A temporary PowerShell input workaround exercised credential checking, issuance, and audit logging before a successful live MCP request. This does not establish that the ordinary interactive setup/login experience is working end to end.
 
 Details that keep these rules exact:
 - Token text uses only the letters A to Z and a to z, the digits 0 to 9, the minus sign and the underscore, plus the two dots between parts. There is no = padding, and there are no spaces or line breaks anywhere. The checker does not trim a token. Anything else is malformed.
@@ -154,6 +168,6 @@ Limits that code cannot remove:
 - The AI app asks as the signed-in person. Everything that person may read can be reached through the app, including by a model that hostile text in a web page or a document has steered. The defence is the choice of person: start the server with someone whose clearance you are willing to hand to that app. A sentence in a prompt is not a defence.
 - When the AI app is a cloud service, the answers it receives travel to that service. The documents themselves are not sent, only the answers to the questions asked.
 - A token lasts at most one hour and the server cannot get a new one. After that, every call gets the sign-in sentence until the server is started again with a new token.
-- Until passwords exist (section 6), anyone who can run the issuer can start this server as any person in data/users.json.
+- Password-protected issuance follows section 6. Access to the signing key or control of the code can still bypass the CLI; protect the local files and treat initial setup as an administrator operation.
 - Requests are handled one at a time. A cancellation sent while a question is being answered is read only after the answer was sent, and the late answer is ignored by the app.
 - Some AI apps give up on a tool after about a minute, and a small model on a plain computer can need longer. The app then shows an error instead of the answer.
