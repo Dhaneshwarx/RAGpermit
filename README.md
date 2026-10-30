@@ -1,5 +1,7 @@
 # PermitRAG
 
+**Start here:** [Step-by-step running manual (Windows PowerShell)](docs/RUNNING.md)
+
 A permission-aware RAG system for company documents. The language model only ever sees text the asking user is allowed to read, so it cannot leak what it never received.
 
 Everything runs locally on a laptop: Ollama (`bge-m3` for embeddings, `qwen3.5:4b` for answers), Qdrant in local mode, and plain Python with no RAG framework, so every security decision is a visible function.
