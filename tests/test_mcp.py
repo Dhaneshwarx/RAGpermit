@@ -860,8 +860,8 @@ def the_front_door_agrees_with_ask_py(lab):
                 os.environ[TOKEN_VARIABLE] = token
             ask.main()
         cli_lines = screen.getvalue().splitlines()
-        assert cli_lines[-1].startswith("[developer info] status:"), label
-        cli_text = "\n".join(cli_lines[:-1])
+        assert "[developer info]" not in screen.getvalue(), label
+        cli_text = "\n".join(cli_lines)
         cli_audit = [{k: v for k, v in entry.items() if k != "time"} for entry in lab.read_audit()]
 
         # the front door

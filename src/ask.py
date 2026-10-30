@@ -11,8 +11,8 @@ import os
 import sys
 
 import src.authentication as authentication
-from src.answering import answer_question
-from src.audit import log_auth_failure
+from src.answering import answer_question, REFUSAL
+from src.audit import log_auth_failure, write_audit_entry
 from src.authorization import load_users
 from src.vector_store import open_store
 
@@ -23,12 +23,10 @@ def refuse_sign_in(reason):
     # The same sentence for every failure: it must not tell an attacker which check failed.
     # The reason code goes to the audit log only.
     print(authentication.AUTH_FAILED_MESSAGE)
-    status = "auth_failed"
     try:
         log_auth_failure(reason)
-    except Exception as error:
-        status = "auth_failed (audit log not written: " + type(error).__name__ + ")"
-    print("[developer info] status:", status)
+    except Exception:
+        pass
     return 1
 
 
@@ -47,20 +45,27 @@ def main():
         return refuse_sign_in(reason)
 
     # 2. The user record. A valid token for a name with no record gives None, and None gets nothing.
-    users, _ = load_users()
-    user = users.get(user_id)
-
-    # 3. Everything from here on is the unchanged v1 pipeline.
-    client = open_store()
     try:
-        result = answer_question(client, user, question, user_id=user_id)
-    finally:
-        client.close()
+        users, rejected = load_users()
+        if rejected:
+            raise ValueError("Invalid user records")
+        user = users.get(user_id)
+        client = open_store()
+        try:
+            result = answer_question(client, user, question, user_id=user_id)
+        finally:
+            client.close()
+    except Exception:
+        try:
+            write_audit_entry({"user_id": user_id, "status": "error", "question": question[:500]})
+        except Exception:
+            pass
+        print(REFUSAL)
+        return 1
 
     print(result["answer"])
     if result["sources"]:
         print("Sources:", "; ".join(result["sources"]))
-    print("[developer info] status:", result["status"])
     return 0
 
 

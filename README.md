@@ -167,7 +167,7 @@ A leak in these results means a secret string from a document the user cannot re
 - **Documents are trusted.** Instructions hidden inside a document are not tested.
 - **Plain-text store.** `qdrant_data/` holds every chunk, restricted ones included, unencrypted. Qdrant local mode lets only one program open it at a time.
 - **The audit log is a plain file.** Anyone with file access can edit it, and it holds questions and chunk ids, so `logs/` is sensitive and is not published.
-- **Developer status line.** `src/ask.py` prints a status such as `not_found`, `no_chunks` or `auth_failed`. A real interface must hide it, because it would tell apart cases that the policy says must look identical.
+- **CLI failures.** Internal result statuses are hidden. Store and user-loading failures return the fixed refusal without a traceback; diagnostic request statuses belong in the local audit log.
 - **Basic retrieval.** Dense search only, top 4 chunks, no reranker, no conversation memory.
 - **Personal questions are lightly tested.** The model is told the asker's role so it can read "my". That fixed one failing question, but it could also over-match a role to similar text.
 
@@ -206,6 +206,10 @@ A leak in these results means a secret string from a document the user cannot re
     logs/audit.jsonl        generated at run time, not published
     keys/token_key.txt      signing key, created by the issuer, not published
     keys/passwords/         local password hashes and salts, not published
+
+## Portfolio and verification
+
+See [the portfolio guide](docs/PORTFOLIO.md) for an interview demo and resume wording. Run `python -m tests.run_all` for all offline checks, or add `--live` to include local Ollama retrieval, answer and audit checks. GitHub Actions runs offline checks on Windows and Linux.
 
 ## Run it (Windows PowerShell)
 

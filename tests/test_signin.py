@@ -31,7 +31,7 @@ from src.retrieval import build_access_filter
 from tests.token_builders import OTHER_KEY, b64, make_token, payload_dict, to_json, unb64
 
 QUESTION = "How many casual leave days do I get?"
-FAILED_SCREEN = AUTH_FAILED_MESSAGE + "\n[developer info] status: auth_failed\n"
+FAILED_SCREEN = AUTH_FAILED_MESSAGE + "\n"
 
 # ---- Stand-ins for the outside world. CALLS lists everything that was called, in order. ----
 CALLS = []
@@ -175,7 +175,7 @@ def main():
         assert code == 0
         assert "Casual leave is 12 days a year." in screen
         assert "Sources: leave-policy / Casual leave" in screen
-        assert "[developer info] status: answered" in screen
+        assert "[developer info]" not in screen
         assert call_names() == ["open_store", "embed", "query_points", "chat"]
         assert CALLS[1][1] == QUESTION
         assert CALLS[2][1] == build_access_filter(users["Premkumar"])
@@ -205,7 +205,7 @@ def main():
         # 5. A valid token for a name with no record, and a user who was removed after signing in.
         nobody = issue_token.issue_token("Nobody")
         code, screen = run_ask(nobody, [QUESTION])
-        assert code == 0 and REFUSAL in screen and "status: no_chunks" in screen
+        assert code == 0 and REFUSAL in screen and "status:" not in screen
         assert call_names() == ["open_store"], "an unknown user caused an embedding or a search"
         last = read_log(audit_file)[-1]
         assert last["user_id"] == "Nobody" and last["known_user"] is False and last["status"] == "no_chunks"
@@ -216,7 +216,7 @@ def main():
         assert REFUSAL in screen and call_names() == ["open_store"], "a removed user was still served"
         print("Unknown-user checks passed: denied at once, with no embedding and no search.")
 
-        # 6. Every kind of failed sign-in: the same two lines on screen, no outside call at all,
+        # 6. Every kind of failed sign-in: the same sentence on screen, no outside call at all,
         #    and one short line in the log that holds no token, no name and no question.
         now = int(time.time())
         fresh = payload_dict("Premkumar", iat=now - 5, exp=now + 600)
@@ -278,7 +278,7 @@ def main():
         blocker.write_text("this is a file, not a folder", encoding="utf-8")
         with mock.patch.object(audit, "AUDIT_FILE", blocker / "audit.jsonl"):
             code, screen = run_ask(None, [QUESTION])
-        assert code == 1 and screen.startswith(AUTH_FAILED_MESSAGE + "\n") and "audit log not written" in screen
+        assert code == 1 and screen.startswith(AUTH_FAILED_MESSAGE + "\n") and "audit log not written" not in screen
         assert CALLS == []
         print("Broken-log check passed: the denial is still delivered, and nothing was called.")
 
