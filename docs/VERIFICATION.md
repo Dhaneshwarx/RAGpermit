@@ -14,3 +14,7 @@ The first combined run flagged existing tests that expected the removed diagnost
 Remaining boundaries: Windows interactive password entry needs verification in the user's terminal; external AI-client compatibility is not verified; no production deployment, SSO, password reset or token revocation service is claimed. See README for the full limitations.
 
 Final offline rerun: all suites passed (exit code 0), including 26 unittest cases, loader refusals, 60 access pairs, 61 token cases, 69,732 rejected token edits, 55 authentication mutations, sign-in checks, 153 MCP conversations, 19 MCP scenarios and 130 MCP mutations. The restricted execution environment initially blocked a temporary-key rename; the approved unrestricted rerun passed. Hosted GitHub Actions results have not been verified in this session.
+
+## Web interface verification
+
+The local web interface adds password login, an HttpOnly/SameSite session cookie, a question page with citations, and sign-out. Six HTTP regression tests pass: static route allowlisting, cross-origin request rejection, authentication before store access, withholding cookies on audit failure, rejecting identity overrides and hiding internal answer statuses, and login rate limiting/logout. The tests use mocked model/credential dependencies; the earlier live pipeline evaluation is separate. Browser visual verification was unavailable because the browser tool failed to initialize on this machine.

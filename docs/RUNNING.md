@@ -1,6 +1,6 @@
 # PermitRAG running manual (Windows PowerShell)
 
-PermitRAG runs in a terminal. It does not currently have a web interface. Run commands from the project folder, one at a time. Password prompts must finish before you run the next command.
+PermitRAG includes a local web interface and a terminal interface. Run commands from the project folder, one at a time. Password prompts must finish before you run the next command.
 
 ## 1. Requirements
 
@@ -70,6 +70,22 @@ python -m src.setup_password Premkumar
 ```
 
 Enter a private password containing 15-128 characters, then enter it again. No characters or stars appear while typing. There is no default password. If credentials already exist, skip setup and use the existing password. Setup intentionally refuses to overwrite credentials. There is currently no supported password-reset command.
+
+## Use the web interface
+
+After completing steps 1-5, start the local website:
+
+```powershell
+python -m src.web_server
+```
+
+Open **http://127.0.0.1:8000** in your browser. Enter your user ID and password, then ask questions on the workspace page. Answers include available citations. Use **Sign out** to clear the browser session. Keep the terminal open while using the website; press Ctrl+C to stop it.
+
+The browser login uses the same local password records, so it avoids the terminal password prompt during everyday login. Initial account setup still requires step 5. Accounts cannot be registered through the website: permissions are assigned by the local administrator.
+
+The server listens only on your computer. It is a local demo server, not a public deployment. Sessions last 15 minutes; login is limited to 10 attempts per minute and questions to 20 per minute across this local server. Conversations are not saved in the browser. Sign-out clears the cookie but does not revoke a copied token. Do not expose this HTTP server through a public tunnel.
+
+The following terminal sign-in steps are an alternative to the web interface.
 
 ## 6. Sign in
 

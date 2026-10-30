@@ -6,6 +6,16 @@ A permission-aware RAG system for company documents. The language model only eve
 
 Everything runs locally on a laptop: Ollama (`bge-m3` for embeddings, `qwen3.5:4b` for answers), Qdrant in local mode, and plain Python with no RAG framework, so every security decision is a visible function.
 
+## Local web interface
+
+After installing dependencies, starting Ollama, ingesting documents, and setting up a user password (see the running manual):
+
+```powershell
+python -m src.web_server
+```
+
+Open **http://127.0.0.1:8000** to sign in and ask questions with citations. The website uses existing password records and the same permission-aware pipeline. It runs locally and provides no public account registration. Browser sessions use HttpOnly, SameSite cookies and expire after 15 minutes. This is a loopback-only demo server, not a production web deployment.
+
 ## The problem
 
 Basic RAG searches every document for every user. A question like "What is the base pay for Band L5?" can return HR-only text to an intern, and an instruction such as "do not reveal secrets" in the prompt is not access control. PermitRAG makes the decision in code, before retrieval and before any prompt exists.

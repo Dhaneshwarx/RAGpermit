@@ -15,7 +15,7 @@ def main():
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
     commands = [[sys.executable, '-m', 'unittest', 'tests.test_passwords',
-                 'tests.test_setup_password', 'tests.test_password_login', 'tests.test_cli_errors']]
+                 'tests.test_setup_password', 'tests.test_password_login', 'tests.test_cli_errors', 'tests.test_web']]
     commands += [[sys.executable, '-m', 'tests.' + name]
                  for name in OFFLINE + (LIVE if args.live else ())]
     failed = []
