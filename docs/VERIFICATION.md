@@ -12,3 +12,5 @@ Password hashing/setup/login: 25 tests passed. New CLI store/user failure regres
 The first combined run flagged existing tests that expected the removed diagnostic status line. Those output expectations were updated; the underlying authorization and audit assertions remain in place.
 
 Remaining boundaries: Windows interactive password entry needs verification in the user's terminal; external AI-client compatibility is not verified; no production deployment, SSO, password reset or token revocation service is claimed. See README for the full limitations.
+
+Final offline rerun: all suites passed (exit code 0), including 26 unittest cases, loader refusals, 60 access pairs, 61 token cases, 69,732 rejected token edits, 55 authentication mutations, sign-in checks, 153 MCP conversations, 19 MCP scenarios and 130 MCP mutations. The restricted execution environment initially blocked a temporary-key rename; the approved unrestricted rerun passed. Hosted GitHub Actions results have not been verified in this session.
