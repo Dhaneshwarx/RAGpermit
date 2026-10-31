@@ -185,3 +185,13 @@ The tests can take several minutes. Success ends with `All requested suites pass
 See [MCP setup in the README](../README.md#mcp-asking-from-an-ai-app). The local probe and protocol tests are verified; external AI-client compatibility remains unverified.
 
 Keep `keys/`, `logs/`, `.venv/` and `qdrant_data/` out of GitHub. They are already excluded by `.gitignore`.
+
+## Administrator document management
+
+In a private workspace, data/admins.json contains a JSON array of approved administrator user IDs. Existing CEO status does not grant administration automatically. Dhanesh's private administrator setup was performed locally; no private administrator list is included in the repository.
+
+Sign in as an administrator and open Manage documents on the question page. Refresh to list documents, select one to edit, or import a permission-tagged Markdown file (maximum 200 KB). Its header doc_id must match the document ID field. Save or delete, then choose Rebuild index. Uploads currently support UTF-8 Markdown with the existing access header; plain .txt, PDF and Word import are not implemented.
+
+After a web document change, all question interfaces refuse retrieval until rebuilding succeeds. This pending state survives a restart. A failed rebuild keeps questions blocked. Deleting all documents and rebuilding clears the collection. Editing files outside this interface still requires explicit ingestion and operational care. The server handles one request at a time; indexing may take several minutes.
+
+Administrator access includes viewing and editing full source documents across departments. Only grant this capability to trusted document administrators. It does not change their question-answering permissions.

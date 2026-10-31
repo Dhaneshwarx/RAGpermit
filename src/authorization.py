@@ -8,7 +8,9 @@ from src.policy_values import (
     VALID_ROLES,
 )
 
-USERS_FILE = Path("data/users.json")
+from src.config import workspace_path
+
+USERS_FILE = workspace_path("data/users.json")
 
 
 def validate_user(record):

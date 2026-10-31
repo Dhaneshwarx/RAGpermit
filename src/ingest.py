@@ -7,7 +7,9 @@ from src.document_loader import load_all_documents
 from src.vector_store import COLLECTION_NAME, open_store, rebuild_collection, store_chunks
 
 EMBEDDING_MODEL = "bge-m3"
-DOCS_FOLDER = Path("data/docs")
+from src.config import workspace_path
+
+DOCS_FOLDER = workspace_path("data/docs")
 
 
 def text_to_embed(chunk):
@@ -40,6 +42,17 @@ def main():
     for document in accepted:
         chunks.extend(make_chunks(document))
     print(len(chunks), "chunks")
+
+    if not chunks:
+        print(
+            "Indexing stopped: no readable document text was found. "
+            "Check document headers and add content. "
+            "The existing index was not changed."
+        )
+        raise SystemExit(1)
+
+    # Embed first. If this step fails, the existing store is left untouched.
+
 
     # Embed first. If this step fails, the existing store is left untouched.
     vectors = embed_chunks(chunks)

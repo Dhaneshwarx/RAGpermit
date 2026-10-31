@@ -1,5 +1,6 @@
 """Run every offline suite, plus local model checks with --live."""
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -13,9 +14,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--live', action='store_true', help='Also test Ollama and the ingested store')
     args = parser.parse_args()
+    if os.environ.get('PERMITRAG_WORKSPACE') is not None:
+        parser.error('Run sample regression tests with PERMITRAG_WORKSPACE unset.')
     root = Path(__file__).resolve().parent.parent
     commands = [[sys.executable, '-m', 'unittest', 'tests.test_passwords',
-                 'tests.test_setup_password', 'tests.test_password_login', 'tests.test_cli_errors', 'tests.test_web']]
+                 'tests.test_setup_password', 'tests.test_password_login', 'tests.test_cli_errors', 'tests.test_web', 'tests.test_workspace', 'tests.test_document_admin']]
     commands += [[sys.executable, '-m', 'tests.' + name]
                  for name in OFFLINE + (LIVE if args.live else ())]
     failed = []

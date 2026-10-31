@@ -6,6 +6,10 @@ from collections import deque
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from src.admin_access import is_admin
+from src import document_admin
+from src.config import workspace_path
+from src.document_loader import load_document
 
 from src.authentication import authenticate, AUTH_FAILED_MESSAGE
 from src.authorization import load_users
@@ -72,9 +76,18 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == '/api/session':
             try:
                 user = self.user()
-                return self.reply(200 if user else 401, {'user': user})
+                return self.reply(200 if user else 401, {'user': user, 'is_admin': bool(user and is_admin(user['user_id']))})
             except Exception:
                 return self.reply(401, {'error': AUTH_FAILED_MESSAGE})
+        if self.path == '/api/admin/documents':
+            try:
+                user = self.user()
+                if not user or not is_admin(user['user_id']):
+                    return self.reply(403, {'error': 'Administrator access required.'})
+                write_audit_entry({'status': 'admin_documents_listed', 'user_id': user['user_id']})
+                return self.reply(200, document_admin.inventory())
+            except Exception:
+                return self.reply(503, {'error': 'Unable to load documents.'})
         assets = {'/': ('index.html', 'text/html'), '/app.js': ('app.js', 'text/javascript'), '/style.css': ('style.css', 'text/css')}
         if self.path not in assets:
             return self.reply(404, {'error': 'Not found.'})
@@ -87,7 +100,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(403, {'error': 'Request refused.'})
         try:
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 12000:
+            if not 0 < length <= 1250000:
                 return self.reply(400, {'error': 'Invalid request.'})
             data = json.loads(self.rfile.read(length))
             if not isinstance(data, dict):
@@ -105,9 +118,21 @@ class Handler(BaseHTTPRequestHandler):
                     return self.reply(401, {'error': AUTH_FAILED_MESSAGE})
                 token = issue_token(uid)
                 write_audit_entry({'status': 'login_success', 'user_id': uid})
-                return self.reply(200, {'user': users[uid]}, 'permitrag=' + token + '; HttpOnly; SameSite=Strict; Path=/; Max-Age=900')
+                return self.reply(200, {'user': users[uid], 'is_admin': is_admin(uid)}, 'permitrag=' + token + '; HttpOnly; SameSite=Strict; Path=/; Max-Age=900')
             if self.path == '/api/logout':
                 return self.reply(200, {'ok': True}, 'permitrag=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
+            if self.path == '/api/admin/documents':
+                user = self.user()
+                if not user or not is_admin(user['user_id']):
+                    return self.reply(403, {'error': 'Administrator access required.'})
+                try:
+                    if data.get('action') == 'reindex':
+                        count = document_admin.reindex(user['user_id'])
+                        return self.reply(200, {'chunks': count})
+                    document_admin.change(user['user_id'], data.get('action'), data.get('doc_id'), data.get('content'))
+                    return self.reply(200, {'ok': True, 'needs_indexing': True})
+                except ValueError as error:
+                    return self.reply(400, {'error': str(error)})
             if self.path != '/api/ask':
                 return self.reply(404, {'error': 'Not found.'})
             user = self.user()
@@ -119,6 +144,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(400, {'error': 'Enter a question of 1-2000 characters.'})
             if self.limited(self.questions, 20):
                 return self.reply(429, {'error': 'Too many questions. Try again in a minute.'})
+            if document_admin.dirty():
+                return self.reply(503, {'error': 'Documents are being updated. Please try again after indexing.'})
             client = open_store()
             try:
                 result = answer_question(client, user, question, user_id=user['user_id'])
@@ -130,7 +157,7 @@ class Handler(BaseHTTPRequestHandler):
                 write_audit_entry({'status': 'error', 'channel': 'web'})
             except Exception:
                 pass
-            self.reply(503, {'error': REFUSAL if self.path == '/api/ask' else 'Unable to complete sign-in. Please try again.'})
+            self.reply(503, {'error': REFUSAL if self.path == '/api/ask' else 'Unable to complete the operation. Please try again.'})
 
 
 def main():

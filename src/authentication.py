@@ -18,7 +18,9 @@ import re
 import time
 from pathlib import Path
 
-KEY_PATH = Path("keys/token_key.txt")
+from src.config import workspace_path
+
+KEY_PATH = workspace_path("keys/token_key.txt")
 MIN_KEY_BYTES = 32            # a shorter key means that no token is valid
 MAX_TOKEN_LENGTH = 2048       # a longer token is malformed
 MAX_LIFETIME_SECONDS = 3600   # exp minus iat may not be more than one hour

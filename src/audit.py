@@ -2,7 +2,9 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-AUDIT_FILE = Path("logs/audit.jsonl")
+from src.config import workspace_path
+
+AUDIT_FILE = workspace_path("logs/audit.jsonl")
 
 
 def write_audit_entry(entry):

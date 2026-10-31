@@ -18,3 +18,11 @@ Final offline rerun: all suites passed (exit code 0), including 26 unittest case
 ## Web interface verification
 
 The local web interface adds password login, an HttpOnly/SameSite session cookie, a question page with citations, and sign-out. Six HTTP regression tests pass: static route allowlisting, cross-origin request rejection, authentication before store access, withholding cookies on audit failure, rejecting identity overrides and hiding internal answer statuses, and login rate limiting/logout. The tests use mocked model/credential dependencies; the earlier live pipeline evaluation is separate. Browser visual verification was unavailable because the browser tool failed to initialize on this machine.
+
+## 31 October 2026: document administration
+
+Implemented private-workspace storage, a separate administrator allowlist, and browser document import/edit/delete/reindex controls. Pending web changes block retrieval across web, CLI and MCP until an administrator rebuild completes. The empty-collection rebuild clears old points. UTF-8 BOM document loading is supported.
+
+Validation: 32 focused unit tests and 8 HTTP tests passed. These include unauthorized administrator routes, invalid metadata/path rejection, failed rebuild protection, and clearing an empty collection. Browser visual QA and live embedding/answer evaluation of the new administration workflow were not performed in this session. Earlier model evaluation results apply to their stated datasets only.
+
+Remaining: user-management UI and password reset, revocable sessions, improved summaries/follow-up retrieval, backup/restore verification, company-network deployment and public hosting. The application remains a local prototype; this milestone does not complete all project requirements.

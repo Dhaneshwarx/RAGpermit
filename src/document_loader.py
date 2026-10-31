@@ -94,7 +94,7 @@ def validate_header(fields):
 
 
 def load_document(path):
-    text = path.read_text(encoding="utf-8")
+    text = path.read_text(encoding="utf-8-sig")
     header_text, body_text = split_header_and_body(text)
     header = validate_header(parse_header_lines(header_text))
 

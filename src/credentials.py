@@ -7,7 +7,9 @@ from pathlib import Path
 
 from src.passwords import hash_password, verify_password
 
-CREDENTIALS_DIR = Path(__file__).resolve().parent.parent / "keys" / "passwords"
+from src.config import workspace_path
+
+CREDENTIALS_DIR = workspace_path("keys/passwords")
 MAX_RECORD_BYTES = 4096
 
 

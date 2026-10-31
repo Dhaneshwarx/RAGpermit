@@ -1,0 +1,38 @@
+[
+  {
+    "user_id": "Dhanesh",
+    "department": "Executive",
+    "role": "CEO",
+    "clearance": 3
+  },
+  {
+    "user_id": "Priya",
+    "department": "HR",
+    "role": "HR Manager",
+    "clearance": 2
+  },
+  {
+    "user_id": "Arjun",
+    "department": "Finance",
+    "role": "Finance Head",
+    "clearance": 2
+  },
+  {
+    "user_id": "Deepak",
+    "department": "Engineering",
+    "role": "Engineer",
+    "clearance": 2
+  },
+  {
+    "user_id": "Meera",
+    "department": "Legal",
+    "role": "Legal Counsel",
+    "clearance": 2
+  },
+  {
+    "user_id": "Kavin",
+    "department": "Engineering",
+    "role": "Intern",
+    "clearance": 0
+  }
+]

@@ -62,6 +62,9 @@ def search_allowed_chunks(client, user, query_vector, limit):
 
 
 def retrieve(client, user, question, limit=4):
+    from src.config import workspace_path
+    if workspace_path('data/index-dirty').exists():
+        raise RuntimeError('Document index needs rebuilding')
     if user is None:
         return []
     # The question is used ONLY to compute its embedding. Who is asking comes from `user`.

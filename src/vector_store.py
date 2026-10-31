@@ -1,7 +1,9 @@
 from qdrant_client import QdrantClient, models
 
 COLLECTION_NAME = "permitrag_chunks"
-STORAGE_FOLDER = "qdrant_data"
+from src.config import workspace_path
+
+STORAGE_FOLDER = str(workspace_path("qdrant_data"))
 VECTOR_SIZE = 1024  # the size bge-m3 produced in our smoke test
 
 

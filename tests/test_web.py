@@ -74,3 +74,15 @@ class WebTests(unittest.TestCase):
                 self.assertEqual(self.request('/api/login', {'user_id':'bad','password':'bad'})[0], 401)
             self.assertEqual(self.request('/api/login', {})[0], 429)
         self.assertIn('Max-Age=0', self.request('/api/logout', {})[1]['Set-Cookie'])
+
+    def test_admin_routes_require_admin(self):
+        with patch.object(web.Handler, 'user', return_value={'user_id':'Kavin'}), patch.object(web, 'is_admin', return_value=False), patch.object(web.document_admin, 'change') as change, patch.object(web.document_admin, 'inventory') as inventory:
+            self.assertEqual(self.request('/api/admin/documents')[0],403)
+            self.assertEqual(self.request('/api/admin/documents',{'action':'delete','doc_id':'policy'})[0],403)
+            change.assert_not_called()
+            inventory.assert_not_called()
+
+    def test_dirty_index_blocks_questions(self):
+        with patch.object(web.Handler,'user',return_value={'user_id':'demo'}), patch.object(web.document_admin,'dirty',return_value=True), patch.object(web,'open_store') as store:
+            self.assertEqual(self.request('/api/ask',{'question':'q'})[0],503)
+            store.assert_not_called()
