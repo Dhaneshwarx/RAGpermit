@@ -195,3 +195,12 @@ Sign in as an administrator and open Manage documents on the question page. Refr
 After a web document change, all question interfaces refuse retrieval until rebuilding succeeds. This pending state survives a restart. A failed rebuild keeps questions blocked. Deleting all documents and rebuilding clears the collection. Editing files outside this interface still requires explicit ingestion and operational care. The server handles one request at a time; indexing may take several minutes.
 
 Administrator access includes viewing and editing full source documents across departments. Only grant this capability to trusted document administrators. It does not change their question-answering permissions.
+
+
+## Manage users
+
+Restart the server after updating the application. Sign in as an administrator, expand Manage users, and select Refresh users. Select an account to edit, or choose New account and enter a unique ID. Choose role, department and clearance explicitly. Create/reset requires a password of 15-128 characters; the form clears it after submission. Passwords are never returned or included in audit entries.
+
+Update access, Reset password, Disable account and Revoke sessions end existing sessions for the affected account. Disable removes the active record; it does not delete their documents. Creating the same ID again resets its password and revokes earlier tokens. The panel cannot change the administrator allowlist or disable/reassign administrator accounts. Existing private accounts and passwords are unchanged until you submit an operation.
+
+Browser sign-out revokes its current token. Account revocation applies across web, CLI and MCP and persists across server restarts. Backups must preserve the private keys/revocations.sqlite3 database alongside other account state. All processes must run the updated version for revocation enforcement.

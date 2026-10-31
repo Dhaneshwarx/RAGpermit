@@ -1,13 +1,17 @@
 import ollama
 from qdrant_client import models
 
-from src.authorization import can_read
+from src.authorization import can_read, has_company_access
 from src.ingest import EMBEDDING_MODEL
 from src.vector_store import COLLECTION_NAME
 
 
 def build_access_filter(user):
     # Built ONLY from the user's record. The question text never reaches this function.
+    if has_company_access(user):
+        return models.Filter(must=[
+            models.FieldCondition(key="clearance", range=models.Range(lte=user["clearance"]))
+        ])
     return models.Filter(
         must=[
             # Clearance check: the chunk's clearance must not be higher than the user's.

@@ -1,0 +1,26 @@
+[
+  {
+    "user_id": "Dhanesh",
+    "department": "Executive",
+    "role": "CEO",
+    "clearance": 3
+  },
+  {
+    "user_id": "Deepak",
+    "department": "HR",
+    "role": "HR Manager",
+    "clearance": 2
+  },
+  {
+    "user_id": "Arjun",
+    "department": "Engineering",
+    "role": "Engineer",
+    "clearance": 2
+  },
+  {
+    "user_id": "Kavin",
+    "department": "Engineering",
+    "role": "Intern",
+    "clearance": 0
+  }
+]

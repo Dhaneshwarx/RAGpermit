@@ -68,6 +68,22 @@ def has_valid_access_fields(doc):
     )
 
 
+def has_company_access(user):
+    """Explicit workspace opt-in for a validated Executive CEO at clearance 3."""
+    try:
+        validated = validate_user(user)
+        if (validated['role'], validated['department'], validated['clearance']) != ('CEO', 'Executive', 3):
+            return False
+        with workspace_path('data/access-policy.json').open('rb') as file:
+            raw = file.read(4097)
+        if len(raw) > 4096:
+            return False
+        policy = json.loads(raw)
+        return policy == {'ceo_company_access': True} and type(policy.get('ceo_company_access')) is bool
+    except (OSError, ValueError, TypeError, KeyError, RecursionError):
+        return False
+
+
 def can_read(user, doc):
     # The one place that decides access. Anything unknown or invalid returns False;
     # the only way to get True is to pass every check with valid data.
@@ -77,7 +93,8 @@ def can_read(user, doc):
         return False
 
     return (
-        doc["department"] == "ALL"
+        has_company_access(user)
+        or doc["department"] == "ALL"
         or doc["department"] == user["department"]
         or user["role"] in doc["allowed_roles"]
     )

@@ -7,7 +7,8 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from src.admin_access import is_admin
-from src import document_admin
+from src import document_admin, user_admin
+from src.revocation import revoke_token
 from src.config import workspace_path
 from src.document_loader import load_document
 
@@ -88,6 +89,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(200, document_admin.inventory())
             except Exception:
                 return self.reply(503, {'error': 'Unable to load documents.'})
+        if self.path == '/api/admin/users':
+            try:
+                user = self.user()
+                if not user or not is_admin(user['user_id']):
+                    return self.reply(403, {'error': 'Administrator access required.'})
+                return self.reply(200, user_admin.inventory())
+            except Exception:
+                return self.reply(503, {'error': 'Unable to load accounts.'})
         assets = {'/': ('index.html', 'text/html'), '/app.js': ('app.js', 'text/javascript'), '/style.css': ('style.css', 'text/css')}
         if self.path not in assets:
             return self.reply(404, {'error': 'Not found.'})
@@ -119,7 +128,20 @@ class Handler(BaseHTTPRequestHandler):
                 token = issue_token(uid)
                 write_audit_entry({'status': 'login_success', 'user_id': uid})
                 return self.reply(200, {'user': users[uid], 'is_admin': is_admin(uid)}, 'permitrag=' + token + '; HttpOnly; SameSite=Strict; Path=/; Max-Age=900')
+            if self.path == '/api/admin/users':
+                user = self.user()
+                if not user or not is_admin(user['user_id']):
+                    return self.reply(403, {'error': 'Administrator access required.'})
+                try:
+                    user_admin.change(user['user_id'], data)
+                    return self.reply(200, {'ok': True})
+                except (ValueError, TypeError):
+                    return self.reply(400, {'error': 'Account change refused. Check the user, role and password (15-128 characters). Administrator accounts cannot be disabled or reassigned.'})
             if self.path == '/api/logout':
+                cookies = SimpleCookie()
+                cookies.load(self.headers.get('Cookie', ''))
+                if 'permitrag' in cookies:
+                    revoke_token(cookies['permitrag'].value)
                 return self.reply(200, {'ok': True}, 'permitrag=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
             if self.path == '/api/admin/documents':
                 user = self.user()

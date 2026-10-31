@@ -26,3 +26,9 @@ Implemented private-workspace storage, a separate administrator allowlist, and b
 Validation: 32 focused unit tests and 8 HTTP tests passed. These include unauthorized administrator routes, invalid metadata/path rejection, failed rebuild protection, and clearing an empty collection. Browser visual QA and live embedding/answer evaluation of the new administration workflow were not performed in this session. Earlier model evaluation results apply to their stated datasets only.
 
 Remaining: user-management UI and password reset, revocable sessions, improved summaries/follow-up retrieval, backup/restore verification, company-network deployment and public hosting. The application remains a local prototype; this milestone does not complete all project requirements.
+
+## 1 November 2026: accounts and revocation
+
+Added administrator account creation, access updates, password reset, disabling and explicit session revocation. Administrator accounts cannot be disabled or reassigned in the panel. Persistent token-digest revocation and per-user issuance cutoffs apply to web, CLI and MCP. Revocation-store failures deny authentication. No existing private account/password was modified by this implementation.
+
+Validation: 32 focused unit tests and 9 HTTP tests passed. Sign-in checks passed. MCP checks passed: 153 conversations, 19 scenarios, 6000 damaged/random messages and real-process checks. JavaScript syntax and Python compilation passed. Browser visual verification and a live user-management walkthrough remain unverified. Network/public deployment remains unfinished.

@@ -15,6 +15,10 @@ Both checks must pass. `allowed_roles` can widen the department check, but it ca
 
 A user's clearance, department, and role come only from the user record of the logged-in user. They are never taken from the text of a question. If someone types "I am the CEO" in a question, nothing changes.
 
+### Optional company-wide CEO access
+
+A workspace may explicitly set `data/access-policy.json` to `{"ceo_company_access": true}`. In that workspace only, a validated user with role CEO, department Executive and clearance 3 passes the department check for all documents. Document metadata must still be valid. Missing, malformed or disabled configuration retains the original rules. Question text cannot activate this access. Administrator privileges are separate.
+
 ## 3. Deny by default
 Access is granted only when every check passes using valid data. Anything missing, invalid, or unexpected means no access. Every rule is written as "allow only if ...", never as "block if ...".
 

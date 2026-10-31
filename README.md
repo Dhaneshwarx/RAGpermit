@@ -6,6 +6,12 @@ A permission-aware RAG system for company documents. The language model only eve
 
 Everything runs locally on a laptop: Ollama (`bge-m3` for embeddings, `qwen3.5:4b` for answers), Qdrant in local mode, and plain Python with no RAG framework, so every security decision is a visible function.
 
+## Account administration update (1 November 2026)
+
+Administrators can now use Manage users to create accounts, update access, reset passwords, disable accounts and revoke sessions. Disabled accounts are removed from the active user list; credentials remain private and recreating an account requires a new password. Administrator accounts cannot be disabled or reassigned through this panel. Administrator allowlist membership remains a trusted local operation.
+
+Persistent revocation in keys/revocations.sqlite3 is checked after signed-token validation by web, CLI and MCP. Reset, update, disable and explicit account revocation invalidate earlier tokens. Browser sign-out revokes the current token. New tokens are issued after the revocation cutoff (issuance may wait up to one second). If the revocation store cannot be read, authentication fails closed. These features supersede earlier statements below about missing password reset and revocation. The local server remains serial and is not a public-hosting server.
+
 ## Local web interface
 
 After installing dependencies, starting Ollama, ingesting documents, and setting up a user password (see the running manual):

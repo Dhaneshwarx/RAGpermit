@@ -9,4 +9,4 @@ USER_DEPARTMENTS = {"HR", "Finance", "Engineering", "Legal", "Executive"}
 # Departments a document can belong to: the same list plus "ALL".
 DOCUMENT_DEPARTMENTS = USER_DEPARTMENTS | {"ALL"}
 
-VALID_ROLES = {"Intern", "Engineer", "HR Manager", "Finance Head", "Legal Counsel", "CEO"}
+VALID_ROLES = {"Intern", "Junior Engineer", "Engineer", "HR Manager", "Finance Head", "Legal Counsel", "CEO"}

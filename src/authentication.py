@@ -149,4 +149,14 @@ def authenticate(token, now=None, key_path=KEY_PATH):
 
     if now is None:
         now = int(time.time())
-    return check_token(token, key, now)
+    user_id, reason = check_token(token, key, now)
+    if reason is not None:
+        return user_id, reason
+    try:
+        from src.revocation import revoked
+        payload = json.loads(decode_part(token.split('.')[1]))
+        if revoked(token, user_id, payload['iat']):
+            return None, 'revoked'
+    except Exception:
+        return None, 'revocation_unavailable'
+    return user_id, None

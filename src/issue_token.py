@@ -62,6 +62,10 @@ def issue_token(user_id, lifetime=DEFAULT_LIFETIME_SECONDS, now=None, key_path=N
     if type(lifetime) is not int or not 1 <= lifetime <= authentication.MAX_LIFETIME_SECONDS:
         raise ValueError("seconds must be a whole number from 1 to " + str(authentication.MAX_LIFETIME_SECONDS))
     if now is None:
+        from src.revocation import cutoff
+        blocked_until = cutoff(user_id)
+        if blocked_until >= int(time.time()):
+            time.sleep(max(0, blocked_until + 1 - time.time()))
         now = int(time.time())
     if key_path is None:
         key_path = authentication.KEY_PATH

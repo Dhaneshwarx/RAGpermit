@@ -86,3 +86,9 @@ class WebTests(unittest.TestCase):
         with patch.object(web.Handler,'user',return_value={'user_id':'demo'}), patch.object(web.document_admin,'dirty',return_value=True), patch.object(web,'open_store') as store:
             self.assertEqual(self.request('/api/ask',{'question':'q'})[0],503)
             store.assert_not_called()
+
+    def test_user_admin_routes_require_admin(self):
+        with patch.object(web.Handler, 'user', return_value={'user_id':'Kavin'}), patch.object(web, 'is_admin', return_value=False), patch.object(web.user_admin, 'change') as change:
+            self.assertEqual(self.request('/api/admin/users')[0],403)
+            self.assertEqual(self.request('/api/admin/users',{'action':'disable','user_id':'Dhanesh'})[0],403)
+            change.assert_not_called()
