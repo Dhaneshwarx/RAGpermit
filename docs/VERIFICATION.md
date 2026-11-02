@@ -32,3 +32,7 @@ Remaining: user-management UI and password reset, revocable sessions, improved s
 Added administrator account creation, access updates, password reset, disabling and explicit session revocation. Administrator accounts cannot be disabled or reassigned in the panel. Persistent token-digest revocation and per-user issuance cutoffs apply to web, CLI and MCP. Revocation-store failures deny authentication. No existing private account/password was modified by this implementation.
 
 Validation: 32 focused unit tests and 9 HTTP tests passed. Sign-in checks passed. MCP checks passed: 153 conversations, 19 scenarios, 6000 damaged/random messages and real-process checks. JavaScript syntax and Python compilation passed. Browser visual verification and a live user-management walkthrough remain unverified. Network/public deployment remains unfinished.
+# Manual release note (2 November 2026)
+
+The measurements below are historical. For the extractive evidence release, see the handoff package's VERIFICATION.md and [manual](MANUAL_FINISH.md). It adds strict evidence selection and exact-section lookup; earlier model-answer quality figures are not measurements of this version.
+

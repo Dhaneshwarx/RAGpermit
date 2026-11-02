@@ -18,7 +18,7 @@ def main():
         parser.error('Run sample regression tests with PERMITRAG_WORKSPACE unset.')
     root = Path(__file__).resolve().parent.parent
     commands = [[sys.executable, '-m', 'unittest', 'tests.test_passwords',
-                 'tests.test_setup_password', 'tests.test_password_login', 'tests.test_cli_errors', 'tests.test_web', 'tests.test_workspace', 'tests.test_document_admin', 'tests.test_company_access', 'tests.test_junior_access', 'tests.test_user_admin']]
+                 'tests.test_setup_password', 'tests.test_password_login', 'tests.test_cli_errors', 'tests.test_web', 'tests.test_workspace', 'tests.test_document_admin', 'tests.test_company_access', 'tests.test_junior_access', 'tests.test_user_admin', 'tests.test_web_markup', 'tests.test_reset_password', 'tests.test_conversation', 'tests.test_strict_evidence']]
     commands += [[sys.executable, '-m', 'tests.' + name]
                  for name in OFFLINE + (LIVE if args.live else ())]
     failed = []

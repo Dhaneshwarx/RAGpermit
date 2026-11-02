@@ -69,7 +69,7 @@ Run this once for the demo user:
 python -m src.setup_password Premkumar
 ```
 
-Enter a private password containing 15-128 characters, then enter it again. No characters or stars appear while typing. There is no default password. If credentials already exist, skip setup and use the existing password. Setup intentionally refuses to overwrite credentials. There is currently no supported password-reset command.
+Enter a private password containing 3-20 characters, then enter it again. No characters or stars appear while typing. There is no default password. If credentials already exist, skip setup and use the existing password. Setup intentionally refuses to overwrite credentials. Existing passwords can be reset with the authenticated terminal command described below.
 
 ## Use the web interface
 
@@ -83,7 +83,19 @@ Open **http://127.0.0.1:8000** in your browser. Enter your user ID and password,
 
 The browser login uses the same local password records, so it avoids the terminal password prompt during everyday login. Initial account setup still requires step 5. Accounts cannot be registered through the website: permissions are assigned by the local administrator.
 
-The server listens only on your computer. It is a local demo server, not a public deployment. Sessions last 15 minutes; login is limited to 10 attempts per minute and questions to 20 per minute across this local server. Conversations are not saved in the browser. Sign-out clears the cookie but does not revoke a copied token. Do not expose this HTTP server through a public tunnel.
+The server listens only on your computer. It is a local demo server, not a public deployment. Sessions last 15 minutes; login is limited to 10 attempts per minute and questions to 20 per minute across this local server. Sign-out clears the cookie and revokes that session token. Do not expose this HTTP server through a public tunnel.
+
+### Follow-up questions
+
+The web chat sends your last three successful user questions with the next question. For example, ask "What is Project Horizon?" and then "When is its deadline?" when your workspace has a document about that project. The server searches again using your current account permissions and answers from retrieved documents. Earlier questions help resolve references; they do not supply facts or grant access. Earlier assistant answers are not included, so repeat a name if it appeared only in an answer.
+
+Select **New conversation** to clear the visible conversation and question context. Context also clears on page reload, sign-out, a new sign-in, and when a request detects an expired session or an account change. History lives only in the current tab's memory; the existing server audit log can record the beginning of the contextual question. The terminal and MCP interfaces remain single-question interfaces.
+
+Optional browser-script behavior checks (Node.js required only for this developer check):
+
+```powershell
+node tests/test_conversation_ui.cjs
+```
 
 The following terminal sign-in steps are an alternative to the web interface.
 
@@ -199,8 +211,29 @@ Administrator access includes viewing and editing full source documents across d
 
 ## Manage users
 
-Restart the server after updating the application. Sign in as an administrator, expand Manage users, and select Refresh users. Select an account to edit, or choose New account and enter a unique ID. Choose role, department and clearance explicitly. Create/reset requires a password of 15-128 characters; the form clears it after submission. Passwords are never returned or included in audit entries.
+Restart the server after updating the application. Sign in as an administrator, expand Manage users, and select Refresh users. Select an account to edit, or choose New account and enter a unique ID. Choose role, department and clearance explicitly. Create/reset requires a password of 3-20 characters; the form clears it after submission. Passwords are never returned or included in audit entries.
 
 Update access, Reset password, Disable account and Revoke sessions end existing sessions for the affected account. Disable removes the active record; it does not delete their documents. Creating the same ID again resets its password and revokes earlier tokens. The panel cannot change the administrator allowlist or disable/reassign administrator accounts. Existing private accounts and passwords are unchanged until you submit an operation.
 
 Browser sign-out revokes its current token. Account revocation applies across web, CLI and MCP and persists across server restarts. Backups must preserve the private keys/revocations.sqlite3 database alongside other account state. All processes must run the updated version for revocation enforcement.
+
+
+Password policy update: new and reset passwords contain 3-20 characters. Existing passwords up to 128 characters remain valid for login until reset. Reset Deepak, Arjun and Kavin first, then reset Dhanesh last because the administrator's own reset ends that session. Enter secrets only in the password field. Prefer the longer end of the permitted range.
+
+
+## Reset an existing password in the terminal
+
+The reset command requires the current password of a configured administrator. It then asks for the new password twice, using hidden input. Passwords are never command arguments. New passwords contain 3-20 characters; existing longer administrator passwords are accepted for authentication. No default passwords are provided.
+
+In PowerShell, from the project folder:
+
+```powershell
+$env:PERMITRAG_WORKSPACE = "C:\Users\Dhanesh\PermitRAGPrivate"
+.\.venv\Scripts\python.exe -m src.reset_password Deepak --admin Dhanesh
+```
+
+In Windows Command Prompt (cmd.exe), set the workspace with `set PERMITRAG_WORKSPACE=C:\Users\Dhanesh\PermitRAGPrivate` instead. The Python command is the same.
+
+Run separately for Deepak, Arjun and Kavin. Reset Dhanesh last using `python -m src.reset_password Dhanesh --admin Dhanesh`. Each command first asks for the current Dhanesh password, then the new target password and confirmation. Existing target sessions are revoked on reset. After resetting Dhanesh, use the new administrator password for later commands. Initial setup remains `src.setup_password`; it intentionally refuses to overwrite existing credentials.
+
+If hidden input is unavailable, the reset command stops rather than echoing passwords. A storage failure can revoke sessions even when password replacement does not complete; retry after fixing storage. This is an account-management command, not a recovery bypass for an unknown administrator password.

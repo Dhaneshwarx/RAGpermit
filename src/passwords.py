@@ -5,15 +5,17 @@ import hmac
 import secrets
 
 ITERATIONS = 600_000
-MIN_PASSWORD_CHARS = 15
-MAX_PASSWORD_CHARS = 128
+MIN_PASSWORD_CHARS = 3
+MAX_PASSWORD_CHARS = 20
+LEGACY_MAX_PASSWORD_CHARS = 128
 
 
-def password_bytes(password):
+def password_bytes(password, for_verification=False):
     if not isinstance(password, str):
         raise ValueError("Password must be text.")
-    if not MIN_PASSWORD_CHARS <= len(password) <= MAX_PASSWORD_CHARS:
-        raise ValueError("Password must contain 15 to 128 characters.")
+    maximum = LEGACY_MAX_PASSWORD_CHARS if for_verification else MAX_PASSWORD_CHARS
+    if not MIN_PASSWORD_CHARS <= len(password) <= maximum:
+        raise ValueError("Password must contain 3 to 20 characters.")
     # Preserve spaces and case exactly; never silently trim a password.
     return password.encode("utf-8")
 
@@ -34,7 +36,7 @@ def hash_password(password):
 
 def verify_password(password, record):
     try:
-        raw = password_bytes(password)
+        raw = password_bytes(password, for_verification=True)
         if not isinstance(record, dict):
             return False
         if set(record) != {"algorithm", "iterations", "salt", "hash"}:

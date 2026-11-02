@@ -17,9 +17,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-import ollama
-
 import src.ask as ask
+import src.answering as answering
+import src.retrieval as retrieval
 import src.audit as audit
 import src.authentication as authentication
 import src.credentials as credentials
@@ -58,14 +58,16 @@ def fake_open_store():
     return FakeClient()
 
 
-def fake_embed(model, input):
+def fake_embed(model, input, truncate=False):
+    assert truncate is False
     CALLS.append(("embed", input[0]))
     return SimpleNamespace(embeddings=[[0.0, 0.0, 0.0]])
 
 
-def fake_chat(model, messages, think=False, options=None):
+def fake_chat(model, messages, think=False, options=None, format=None):
+    assert format == answering.SELECTION_SCHEMA
     CALLS.append(("chat",))
-    return SimpleNamespace(message=SimpleNamespace(content="Casual leave is 12 days a year. [1]"))
+    return SimpleNamespace(message=SimpleNamespace(content='{"source_ids":[1]}'))
 
 
 # ---- Helpers ----
@@ -94,7 +96,7 @@ def run_issuer(arguments):
     out, err = io.StringIO(), io.StringIO()
     with mock.patch.object(sys, "argv", ["issue_token"] + arguments), contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
         with mock.patch.object(issue_token.getpass, "getpass",
-                               return_value="Temporary sign-in passphrase!"):
+                               return_value="Sign-in test 123!"):
             with mock.patch.object(issue_token, "write_audit_entry"), mock.patch.object(issue_token, "log_auth_failure"):
                 code = issue_token.main()
     return code, out.getvalue(), err.getvalue()
@@ -116,13 +118,13 @@ def main():
         stack.enter_context(mock.patch.object(authentication, "KEY_PATH", key_path))
         stack.enter_context(mock.patch.object(audit, "AUDIT_FILE", audit_file))
         stack.enter_context(mock.patch.object(ask, "open_store", fake_open_store))
-        stack.enter_context(mock.patch.object(ollama, "embed", fake_embed))
-        stack.enter_context(mock.patch.object(ollama, "chat", fake_chat))
+        stack.enter_context(mock.patch.object(retrieval.MODEL_CLIENT, "embed", fake_embed))
+        stack.enter_context(mock.patch.object(answering.MODEL_CLIENT, "chat", fake_chat))
         stack.enter_context(mock.patch.object(
             credentials, "CREDENTIALS_DIR", folder / "passwords"))
         for name in users:
             credentials.create_credentials(
-                name, "Temporary sign-in passphrase!")
+                name, "Sign-in test 123!")
 
         # 1. The issuer creates the key once. Its token is the only thing on standard output.
         assert not key_path.exists()
@@ -174,6 +176,7 @@ def main():
         code, screen = run_ask(token, [QUESTION])
         assert code == 0
         assert "Casual leave is 12 days a year." in screen
+        assert "[1] leave-policy / Casual leave\nCasual leave is 12 days a year." in screen
         assert "Sources: leave-policy / Casual leave" in screen
         assert "[developer info]" not in screen
         assert call_names() == ["open_store", "embed", "query_points", "chat"]

@@ -24,7 +24,7 @@ class SetupPasswordTests(unittest.TestCase):
             mock.patch.object(setup, "load_users",
                               return_value=({"TestUser": {}}, []))
         )
-        self.password = "Temporary test passphrase!"
+        self.password = "Temporary test 123!"
 
     def run_command(self, arguments, inputs):
         output, errors = io.StringIO(), io.StringIO()
@@ -74,7 +74,7 @@ class SetupPasswordTests(unittest.TestCase):
     def test_mismatch_and_short_password_save_nothing(self):
         for inputs in (
             [self.password, "Different test passphrase!"],
-            ["short", "short"],
+            ["ab", "ab"],
         ):
             with self.subTest(inputs=inputs):
                 code, _, _ = self.run_command(["TestUser"], inputs)

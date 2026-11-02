@@ -1,4 +1,17 @@
 const $ = id => document.getElementById(id);
+let questionHistory = [];
+let conversationVersion = 0;
+let activeUserId = null;
+let requestInFlight = false;
+function resetChat() {
+  questionHistory = [];
+  conversationVersion += 1;
+  $('messages').replaceChildren();
+  $('empty').hidden = false;
+  $('question').value = '';
+  $('ask-error').textContent = '';
+}
+
 async function api(path, data) {
   const response = await fetch('/api/' + path, data === undefined ? {} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
   const result = await response.json();
@@ -13,14 +26,17 @@ const rolePrompts = {
   'Intern': ['What should an intern complete during the first week?', 'When are intern weekly updates due?', 'What should an intern include in a review request?']
 };
 function showUser(user, admin=false) {
+  const nextUserId = user ? user.user_id : null;
+  if (activeUserId !== nextUserId) resetChat();
+  activeUserId = nextUserId;
   $('admin-panel').hidden=!admin;
   $('users-panel').hidden=!admin;
   $('login-view').hidden=!!user; $('ask-view').hidden=!user;
   $('question-suggestions').replaceChildren();
-  $('signed-in-as').textContent=user ? 'Signed in as '+user.user_id+' � '+user.role+' � '+user.department : '';
+  $('signed-in-as').textContent=user ? 'Signed in as '+user.user_id+' · '+user.role+' · '+user.department : '';
   if(user){
     $('user-name').textContent=user.user_id;
-    $('user-role').textContent=user.role+' � '+user.department;
+    $('user-role').textContent=user.role+' · '+user.department;
     $('role-introduction').textContent='Suggested questions for your '+user.role+' role. Answers depend on the documents available to you.';
     const prompts=rolePrompts[user.role] || ['What products does the company offer?', 'How many casual leave days do employees receive?'];
     prompts.forEach(question=>{
@@ -31,7 +47,7 @@ function showUser(user, admin=false) {
     });
   }
 }
-function clearConversation(){ accounts=[]; $('user-select').replaceChildren(new Option('New account','')); $('account-id').value=''; $('account-password').value=''; $('users-status').textContent=''; documents=[]; $('doc-select').replaceChildren(new Option('New document','')); $('doc-content').value=''; $('doc-id').value=''; $('doc-file').value=''; $('admin-status').textContent=''; $('messages').replaceChildren(); $('empty').hidden=false; $('question').value=''; $('ask-error').textContent=''; }
+function clearConversation(){ resetChat(); accounts=[]; $('user-select').replaceChildren(new Option('New account','')); $('account-id').value=''; $('account-password').value=''; $('users-status').textContent=''; documents=[]; $('doc-select').replaceChildren(new Option('New document','')); $('doc-content').value=''; $('doc-id').value=''; $('doc-file').value=''; $('admin-status').textContent=''; $('messages').replaceChildren(); $('empty').hidden=false; $('question').value=''; $('ask-error').textContent=''; }
 $('login-form').addEventListener('submit',async event=>{
   event.preventDefault(); $('login-button').disabled=true; $('login-error').textContent='';
   try { const result=await api('login',{user_id:$('username').value,password:$('password').value}); clearConversation(); showUser(result.user, result.is_admin); $('question').focus(); }
@@ -42,17 +58,58 @@ $('logout').addEventListener('click',async()=>{
   try{await api('logout',{}); clearConversation(); showUser(null); $('username').focus();}
   catch(error){$('ask-error').textContent='Sign out failed. Please try again.';}
 });
-$('ask-form').addEventListener('submit',async event=>{
-  event.preventDefault(); const question=$('question').value.trim(); if(!question)return;
-  $('ask-button').disabled=true; $('logout').disabled=true; $('ask-button').textContent='Searching documents…'; $('ask-error').textContent='';
-  try{
-    const result=await api('ask',{question}); $('empty').hidden=true;
-    const prompt=document.createElement('div'); prompt.className='message question'; prompt.textContent=question;
-    const answer=document.createElement('div'); answer.className='message answer'; answer.textContent=result.answer;
-    if(result.sources.length){const sources=document.createElement('span'); sources.className='sources'; sources.textContent='Sources: '+result.sources.join(' · '); answer.append(sources);}
-    $('messages').append(prompt,answer); $('question').value=''; answer.scrollIntoView({behavior:'smooth',block:'nearest'});
-  }catch(error){if(error.status===401){clearConversation();showUser(null);$('login-error').textContent='Your session ended. Please sign in again.';}else{$('ask-error').textContent=error.message;}}
-  finally{$('ask-button').disabled=false; $('logout').disabled=false; $('ask-button').textContent='Ask question →';}
+$('new-conversation').addEventListener('click', () => {
+  if (requestInFlight) return;
+  resetChat();
+  $('question').focus();
+});
+$('ask-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (requestInFlight || !activeUserId) return;
+  const question = $('question').value.trim();
+  if (!question) return;
+  const version = conversationVersion;
+  const owner = activeUserId;
+  requestInFlight = true;
+  $('ask-button').disabled = true;
+  $('logout').disabled = true;
+  $('new-conversation').disabled = true;
+  $('ask-button').textContent = 'Searching documents...';
+  $('ask-error').textContent = '';
+  try {
+    const result = await api('ask', {
+      question, history: [...questionHistory], history_user_id: owner
+    });
+    if (version !== conversationVersion || owner !== activeUserId) return;
+    questionHistory = [...questionHistory, question].slice(-3);
+    $('empty').hidden = true;
+    const prompt = document.createElement('div');
+    prompt.className = 'message question'; prompt.textContent = question;
+    const answer = document.createElement('div');
+    answer.className = 'message answer'; answer.textContent = result.answer;
+    if (result.sources.length) {
+      const sources = document.createElement('span');
+      sources.className = 'sources'; sources.textContent = 'Sources: ' + result.sources.join(' · ');
+      answer.append(sources);
+    }
+    $('messages').append(prompt, answer);
+    $('question').value = '';
+    answer.scrollIntoView({behavior:'smooth', block:'nearest'});
+  } catch (error) {
+    if (version !== conversationVersion || owner !== activeUserId) return;
+    if (error.status === 401 || error.status === 409) {
+      clearConversation(); showUser(null);
+      $('login-error').textContent = 'Your session ended or account changed. Please sign in again.';
+    } else {
+      $('ask-error').textContent = error.message;
+    }
+  } finally {
+    requestInFlight = false;
+    $('ask-button').disabled = false;
+    $('logout').disabled = false;
+    $('new-conversation').disabled = false;
+    $('ask-button').textContent = 'Ask question →';
+  }
 });
 api('session').then(result=>showUser(result.user, result.is_admin)).catch(()=>showUser(null));
 
@@ -78,7 +135,7 @@ async function refreshDocuments(){
 }
 async function adminTask(task){
  const buttons=[...$('admin-panel').querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);
- $('admin-status').textContent='Working� This may take a few minutes.';
+ $('admin-status').textContent='Working… This may take a few minutes.';
  try{await task();}catch(error){$('admin-status').textContent=error.message;}finally{buttons.forEach(b=>b.disabled=false);}
 }
 $('load-docs').onclick=()=>adminTask(refreshDocuments);
@@ -92,7 +149,7 @@ let accounts=[];
 async function refreshUsers(){
  const result=await api('admin/users');accounts=result.users;
  $('user-select').replaceChildren(new Option('New account',''));
- accounts.forEach(user=>$('user-select').add(new Option(user.user_id+' � '+user.role,user.user_id)));
+ accounts.forEach(user=>$('user-select').add(new Option(user.user_id+' · '+user.role,user.user_id)));
  $('users-status').textContent=accounts.length+' active accounts.';
 }
 $('refresh-users').onclick=()=>refreshUsers().catch(error=>$('users-status').textContent=error.message);
@@ -102,7 +159,7 @@ document.querySelectorAll('[data-user-action]').forEach(button=>button.onclick=a
  if(!confirm(action+' account '+$('account-id').value+'? Existing sessions for this account will end.'))return;
  const buttons=[...$('users-panel').querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);
  $('users-status').textContent='Updating account...';
- try{await api('admin/users',{action,user_id:$('account-id').value,role:$('account-role').value,department:$('account-department').value,clearance:Number($('account-clearance').value),password:$('account-password').value});await refreshUsers();$('users-status').textContent='Account operation completed. Affected users must sign in again.';}
+ try{await api('admin/users',{action,user_id:$('account-id').value,role:$('account-role').value,department:$('account-department').value,clearance:Number($('account-clearance').value),password:$('account-password').value});if($('account-id').value===$('user-name').textContent && ['reset','revoke'].includes(action)){clearConversation();showUser(null);$('login-error').textContent='Your session ended. Sign in again using your current password.';return;}await refreshUsers();$('users-status').textContent='Account operation completed. Affected users must sign in again.';}
  catch(error){$('users-status').textContent=error.message;}
  finally{$('account-password').value='';buttons.forEach(b=>b.disabled=false);}
 });

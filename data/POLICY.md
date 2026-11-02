@@ -80,7 +80,7 @@ Anything else means no sign-in. Like section 3, every rule is "allow only if".
 The key:
 - It lives in keys/token_key.txt, which is listed in .gitignore and never committed.
 - It must be at least 32 bytes. A missing, empty or shorter key means no token is valid (fail closed). The checker never creates a key. Only the issuer does.
-- Replacing the key makes every existing token invalid. That is how all tokens are revoked at once. There is no per-token revocation list. Tokens are short-lived instead.
+- Replacing the key makes every existing token invalid. That is how all tokens are revoked at once. Per-token and account revocation are persisted in keys/revocations.sqlite3 and checked during authentication.
 
 When sign-in fails:
 - The reply is always: "Authentication failed. Please sign in." The same sentence is used for a missing token, a garbled token, a changed token, a wrong key, an expired token and a missing key. It must not say which check failed, because that would tell an attacker what to fix.
@@ -96,14 +96,14 @@ Limit: the CLI requires a password, but access to the signing key or control of 
 ### Password-protected token issuance
 
 - Setup accepts only a known user when all user records are valid. The password is entered twice through hidden input and both entries must match exactly. Visible-input fallback or cancellation stops setup. Existing credentials are never overwritten.
-- A password must contain 15-128 characters. Case and spaces are preserved; nothing is trimmed or normalized. It is encoded as UTF-8 for hashing.
+- New and reset passwords must contain 3-20 characters; existing passwords up to 128 characters remain valid until reset. Case and spaces are preserved; nothing is trimmed or normalized. It is encoded as UTF-8 for hashing.
 - Each password uses PBKDF2-HMAC-SHA256 with 600,000 iterations, a fresh random 16-byte salt, and a 32-byte derived hash. Verification compares derived hashes with `hmac.compare_digest`.
 - Credential records contain the user ID and the algorithm, iterations, salt, and hash. They live under `keys/passwords/` using a SHA-256 digest of the user ID as the filename. Plaintext passwords are not stored or logged. The entire `keys/` folder is ignored by Git; local filesystem permissions must protect it.
 - The public issuer validates its arguments before prompting. It requires a hidden password, valid user records, an existing user, and matching credentials before calling the signing helper. Missing, unreadable, malformed, oversized, or mismatched credential records deny login. Passwords are not accepted as command arguments.
 - Password-login failure returns the same authentication-failure sentence and attempts to log `auth_failed` with reason `password_login_failed`. A failure to write that denial log never permits login.
 - Successful issuance must write `login_success` with the validated user ID before releasing a token. If signing or success logging fails, no token is returned. Passwords and tokens must not appear in audit logs.
 - The MCP probe uses this password-protected issuer. Document permissions continue to come from user records, never from the password or token claims.
-- There is no supported password-reset command, password-login rate limit, account lockout, or multifactor authentication. Existing tokens remain valid until expiry or signing-key replacement even if password credentials change.
+- The authenticated reset command and web administrator panel revoke earlier sessions on reset. Browser login is rate-limited. Account lockout, multifactor authentication and CLI password-attempt throttling are not implemented.
 
 Implementation status: automated password tests passed on 28 October 2026. Windows interactive input repeatedly produced empty entries during manual verification; the cause remains unresolved. A temporary PowerShell input workaround exercised credential checking, issuance, and audit logging before a successful live MCP request. This does not establish that the ordinary interactive setup/login experience is working end to end.
 
@@ -175,3 +175,7 @@ Limits that code cannot remove:
 - Password-protected issuance follows section 6. Access to the signing key or control of the code can still bypass the CLI; protect the local files and treat initial setup as an administrator operation.
 - Requests are handled one at a time. A cancellation sent while a question is being answered is read only after the answer was sent, and the late answer is ignored by the app.
 - Some AI apps give up on a tool after about a minute, and a small model on a plain computer can need longer. The app then shows an error instead of the answer.
+
+## Extractive evidence mode (2 November 2026)
+
+The model selects only source IDs from already-authorized retrieval results. Python validates JSON shape and IDs, then displays whole source sections with deterministic citations. Empty selections and invalid output receive the fixed refusal. This ensures fidelity to stored passages, not relevance, legal correctness, effective-date validity or completeness. Explicit section references do not fall back to similarly numbered evidence. Oversized evidence is refused rather than truncated.

@@ -33,6 +33,7 @@ NUMBER_LINE = "if type(issued_at) is not int or type(expires_at) is not int:"
 LIFE_LINE = "if expires_at - issued_at > MAX_LIFETIME_SECONDS:"
 KEY_FILE_LINE = "except OSError:\n        return None"
 TOKEN_LINE = 'if token is None or token == "":'
+CHECK_RETURN = "return user_id, None\n\n\ndef authenticate("
 
 MISTAKES = [
     # Length and shape
@@ -73,8 +74,8 @@ MISTAKES = [
     ("extra payload claims are refused", [(SUB_LINE, 'if set(payload) != {"sub", "iat", "exp"}:\n        return None, "bad_claims"\n    ' + SUB_LINE)]),
     ("an empty sub is accepted", [(' or user_id == ""', "")]),
     ("a sub that is not text is accepted", [(SUB_CHECK_LINE, 'if user_id is None or user_id == "":')]),
-    ("the sub is trimmed", [("return user_id, None", "return user_id.strip(), None")]),
-    ("the sub is changed to lower case", [("return user_id, None", "return user_id.lower(), None")]),
+    ("the sub is trimmed", [(CHECK_RETURN, "return user_id.strip(), None\n\n\ndef authenticate(")]),
+    ("the sub is changed to lower case", [(CHECK_RETURN, "return user_id.lower(), None\n\n\ndef authenticate(")]),
     ("true counts as a number", [(NUMBER_LINE, "if not isinstance(issued_at, int) or not isinstance(expires_at, int):")]),
     ("decimal numbers count as numbers", [(NUMBER_LINE, "if not isinstance(issued_at, (int, float)) or not isinstance(expires_at, (int, float)):")]),
     # Time

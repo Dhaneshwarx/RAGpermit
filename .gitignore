@@ -16,3 +16,7 @@ keys/
 
 # Local backup files
 *.bak
+
+# Local private backup and pending writes
+*.backup-*
+*.pending

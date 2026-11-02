@@ -1,5 +1,7 @@
 # PermitRAG
 
+**Manual learning release — 2 November 2026:** Start with [the complete manual](docs/MANUAL_FINISH.md). This source copy adds exact section lookup and validated, complete source excerpts. It accepts reviewed Markdown, not PDFs. Its model selects source IDs; code renders the passages. Older example wording and historical verification below describe earlier releases, not new measurements.
+
 **Start here:** [Step-by-step running manual (Windows PowerShell)](docs/RUNNING.md)
 
 A permission-aware RAG system for company documents. The language model only ever sees text the asking user is allowed to read, so it cannot leak what it never received.
@@ -53,8 +55,8 @@ Answering a question:
 3. Qdrant searches only the chunks that pass an access filter built from the user record: clearance high enough, and department `ALL` or the user's own, or the user's role listed in `allowed_roles`.
 4. Each hit is re-checked by a separate plain-Python rule, `can_read`. If the two disagree, retrieval raises an error, and the request ends with the fixed sentence and an error status in the log.
 5. The prompt is built only from the allowed chunks, plus a line from the user's record (role and department) so the model can read "my".
-6. `qwen3.5:4b` answers with `[1]`-style citations, or replies `NOT_FOUND`.
-7. Code, not the model, turns `NOT_FOUND`, no chunks, an unknown user, or any error into one fixed sentence: "I couldn't find that in the documents available to you."
+6. qwen3.5:4b selects source IDs using a strict JSON schema. Python rejects invalid selections and renders whole authorized passages with citations; raw model prose is never returned.
+7. Code turns an empty selection, invalid output, no chunks, an unknown user, or any error into one fixed sentence: "I couldn't find that in the documents available to you."
 8. The request is appended to `logs/audit.jsonl`: user, question, status, chunk ids retrieved, sources cited. No answers and no chunk text. If the log cannot be written, the answer is withheld.
 
 ## Security design
@@ -86,7 +88,7 @@ Who is asking is decided by a signed token, checked before anything else runs. T
 
 A trusted local administrator creates initial credentials with `python -m src.setup_password <user_id>`. There is no default password. Setup accepts only known users with valid user records, asks for the password twice, and refuses to overwrite existing credentials.
 
-- Passwords contain 15-128 characters. Spaces and case are preserved exactly.
+- Passwords contain 3-20 characters. Spaces and case are preserved exactly.
 - Credentials use PBKDF2-HMAC-SHA256 with 600,000 iterations, a random 16-byte salt, and a 32-byte derived hash. Password comparisons use `hmac.compare_digest`.
 - Records live under `keys/passwords/`, which is excluded by the existing `keys/` Git ignore rule. They contain a user ID and hashing metadata, never a plaintext password.
 - `python -m src.issue_token <user_id> [seconds]` asks for a hidden password, checks the credentials and current user records, and issues a token only on success. It does not accept passwords as command arguments.
@@ -172,9 +174,9 @@ A leak in these results means a secret string from a document the user cannot re
 
 ## Limitations
 
-- **Local trust boundary.** The CLI now checks passwords, but anyone with access to the signing key or control of the application code can bypass that CLI. Initial password setup is a trusted administrator operation, not public registration. Windows filesystem permissions protect credential files; Git ignore rules do not enforce access control. There is no per-token revocation: replacing the key ends every token at once. Production would use a vetted authentication library and managed identity or single sign-on.
+- **Local trust boundary.** The CLI now checks passwords, but anyone with access to the signing key or control of the application code can bypass that CLI. Initial password setup is a trusted administrator operation, not public registration. Windows filesystem permissions protect credential files; Git ignore rules do not enforce access control. Browser logout revokes its session token; account changes revoke earlier tokens through the local SQLite revocation store. Replacing the signing key ends every token at once. Production would use a vetted authentication library and managed identity or single sign-on.
 - **Windows interactive input remains unresolved.** During the 28 October verification, Python's hidden prompt repeatedly received empty entries; other attempts received text. The cause has not been established. Stored credentials and token issuance worked with a temporary PowerShell input workaround, but ordinary interactive setup/login and the full probe must be rechecked before claiming the Windows login experience works end to end.
-- **Password lifecycle is limited.** There is no supported password-reset command, login-attempt rate limit, account lockout, or multifactor authentication. Changing a password does not revoke already-issued tokens.
+- **Password lifecycle is limited.** Authenticated password reset and persistent token revocation are implemented. The web server rate-limits logins; account lockout, multifactor authentication and equivalent CLI password-attempt throttling are not implemented.
 - **An AI app asks as the signed-in person.** Everything that person may read can be reached through the app, including by a model that hostile text has steered. The defence is the choice of person, not a prompt. If the app is a cloud service, the answers it receives (not the documents) leave your computer.
 - **MCP tokens cannot be renewed by the server.** A token lasts at most one hour. After that every call gets the sign-in sentence until the server is started again with a new token. One server serves one person, and questions are handled one at a time.
 - **Slow answers.** Some AI apps give up on a tool after about a minute. A small model on a plain computer can need longer.
@@ -249,7 +251,7 @@ Then, from that folder:
     $env:PERMITRAG_TOKEN = python -m src.issue_token Premkumar
     python -m src.ask "How many casual leave days do I get?"
 
-Run these commands one at a time. Password setup is needed once per user: choose a private 15-128 character password and enter it twice. It refuses to replace an existing credential record. The issuer then asks for that password, creates the signing key (`keys/token_key.txt`, never published) if missing, and returns a token valid for 15 minutes. Only continue to `src.ask` if issuance succeeds. Sign out with `Remove-Item Env:PERMITRAG_TOKEN`.
+Run these commands one at a time. Password setup is needed once per user: choose a private 3-20 character password and enter it twice. It refuses to replace an existing credential record. The issuer then asks for that password, creates the signing key (`keys/token_key.txt`, never published) if missing, and returns a token valid for 15 minutes. Only continue to `src.ask` if issuance succeeds. Sign out with `Remove-Item Env:PERMITRAG_TOKEN`.
 
 The Windows interactive-input issue described above remains open. Do not treat the successful automated tests as verification of these interactive steps on every terminal.
 

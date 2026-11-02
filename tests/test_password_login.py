@@ -30,7 +30,7 @@ class PasswordLoginTests(unittest.TestCase):
             audit, "AUDIT_FILE", self.log))
         self.stack.enter_context(mock.patch.object(
             issuer, "load_users", return_value=({"TestUser": {}}, [])))
-        self.password = "Temporary login passphrase!"
+        self.password = "Login test 123!"
         credentials.create_credentials("TestUser", self.password)
 
     def run_login(self, arguments, inputs):

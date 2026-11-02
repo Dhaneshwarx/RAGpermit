@@ -29,7 +29,7 @@ def main():
         # Refuse to fall back to visibly echoed password input.
         with warnings.catch_warnings():
             warnings.simplefilter("error", getpass.GetPassWarning)
-            password = getpass.getpass("New password (15-128 characters): ")
+            password = getpass.getpass("New password (3-20 characters): ")
             confirmation = getpass.getpass("Confirm password: ")
 
         if password != confirmation:
@@ -45,7 +45,7 @@ def main():
         return 1
     except (OSError, ValueError, TypeError):
         print(
-            "Setup failed. Use a valid password of 15-128 characters "
+            "Setup failed. Use a valid password of 3-20 characters "
             "and check local credential storage.",
             file=sys.stderr,
         )

@@ -6,7 +6,7 @@ from src.passwords import hash_password, verify_password
 class PasswordTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.password = "Example-only passphrase 123!"
+        cls.password = "Example test 123!"
         cls.record = hash_password(cls.password)
 
     def test_correct_password(self):
@@ -22,6 +22,19 @@ class PasswordTests(unittest.TestCase):
             with self.subTest(password=password):
                 self.assertFalse(verify_password(password, self.record))
 
+    def test_existing_long_password_still_verifies(self):
+        import hashlib
+        from src.passwords import ITERATIONS
+        password = "Existing password longer than twenty characters"
+        salt = bytes(range(16))
+        record = {"algorithm": "pbkdf2-sha256", "iterations": ITERATIONS,
+                  "salt": salt.hex(), "hash": hashlib.pbkdf2_hmac(
+                      "sha256", password.encode(), salt, ITERATIONS, dklen=32).hex()}
+        self.assertTrue(verify_password(password, record))
+        self.assertFalse(verify_password(password + "x", record))
+        with self.assertRaises(ValueError):
+            hash_password(password)
+
     def test_random_salts(self):
         other = hash_password(self.password)
         self.assertNotEqual(other["salt"], self.record["salt"])
@@ -29,15 +42,15 @@ class PasswordTests(unittest.TestCase):
         self.assertTrue(verify_password(self.password, other))
 
     def test_length_boundaries_and_unicode(self):
-        for password in ("a" * 15, "b" * 128, "\u0ba4" * 15):
+        for password in ("a" * 3, "b" * 20, "\u0ba4" * 15):
             with self.subTest(length=len(password)):
                 self.assertTrue(
                     verify_password(password, hash_password(password))
                 )
 
     def test_invalid_passwords(self):
-        for password in (None, 123, b"bytes", [], "", "a" * 14,
-                         "a" * 129, "\ud800" * 15):
+        for password in (None, 123, b"bytes", [], "", "a" * 2,
+                         "a" * 21, "\ud800" * 15):
             with self.subTest(value=repr(password)):
                 with self.assertRaises(ValueError):
                     hash_password(password)

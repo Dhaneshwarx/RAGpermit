@@ -11,6 +11,7 @@ from src import document_admin, user_admin
 from src.revocation import revoke_token
 from src.config import workspace_path
 from src.document_loader import load_document
+from src.conversation import contextual_question
 
 from src.authentication import authenticate, AUTH_FAILED_MESSAGE
 from src.authorization import load_users
@@ -136,7 +137,7 @@ class Handler(BaseHTTPRequestHandler):
                     user_admin.change(user['user_id'], data)
                     return self.reply(200, {'ok': True})
                 except (ValueError, TypeError):
-                    return self.reply(400, {'error': 'Account change refused. Check the user, role and password (15-128 characters). Administrator accounts cannot be disabled or reassigned.'})
+                    return self.reply(400, {'error': 'Account change refused. Check the user, role and password (3-20 characters). Administrator accounts cannot be disabled or reassigned.'})
             if self.path == '/api/logout':
                 cookies = SimpleCookie()
                 cookies.load(self.headers.get('Cookie', ''))
@@ -162,15 +163,26 @@ class Handler(BaseHTTPRequestHandler):
                 log_auth_failure('web_session_invalid')
                 return self.reply(401, {'error': AUTH_FAILED_MESSAGE})
             question = data.get('question')
-            if set(data) != {'question'} or not isinstance(question, str) or not 1 <= len(question.strip()) <= 2000:
-                return self.reply(400, {'error': 'Enter a question of 1-2000 characters.'})
+            allowed_fields = ({'question'}, {'question', 'history', 'history_user_id'})
+            if set(data) not in allowed_fields:
+                return self.reply(400, {'error': 'Invalid question request.'})
+            history = data.get('history', [])
+            if not isinstance(history, list):
+                return self.reply(400, {'error': 'Invalid conversation history.'})
+            # This claim binds context to the signed-in account; it never sets identity.
+            if 'history' in data and data['history_user_id'] != user['user_id']:
+                return self.reply(409, {'error': 'Account changed. Please sign in again.'})
+            try:
+                composed_question = contextual_question(question, history)
+            except ValueError:
+                return self.reply(400, {'error': 'Use a question of 1-2000 characters and at most three earlier questions.'})
             if self.limited(self.questions, 20):
                 return self.reply(429, {'error': 'Too many questions. Try again in a minute.'})
             if document_admin.dirty():
                 return self.reply(503, {'error': 'Documents are being updated. Please try again after indexing.'})
             client = open_store()
             try:
-                result = answer_question(client, user, question, user_id=user['user_id'])
+                result = answer_question(client, user, composed_question, user_id=user['user_id'])
             finally:
                 client.close()
             self.reply(200, {'answer': result['answer'], 'sources': result['sources']})

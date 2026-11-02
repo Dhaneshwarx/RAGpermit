@@ -32,9 +32,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-import ollama
-
 import src.ask as ask
+import src.answering as answering
+import src.retrieval as retrieval
 import src.audit as audit
 import src.authentication as authentication
 import src.mcp_server as mcp_server
@@ -739,7 +739,7 @@ def the_real_pipeline_sits_behind_the_door(lab):
     # Here the REAL user records, retrieval, authorization and src/answering.py run behind the door.
     # Only the store, the embedding and the model are fakes, as in tests/test_signin.py.
     calls = []
-    scripted = {"reply": "Casual leave is 12 days a year. [1]"}
+    scripted = {"reply": '{"source_ids":[1]}'}
 
     class Store:
         def query_points(self, **arguments):
@@ -753,11 +753,13 @@ def the_real_pipeline_sits_behind_the_door(lab):
         calls.append(("open_store",))
         return Store()
 
-    def fake_embed(model, input):
+    def fake_embed(model, input, truncate=False):
+        assert truncate is False
         calls.append(("embed", input[0]))
         return SimpleNamespace(embeddings=[[0.0, 0.0, 0.0]])
 
-    def fake_chat(model, messages, think=False, options=None):
+    def fake_chat(model, messages, think=False, options=None, format=None):
+        assert format == answering.SELECTION_SCHEMA
         calls.append(("chat",))
         if model_failure:
             raise RuntimeError("boom secret detail")
@@ -767,7 +769,7 @@ def the_real_pipeline_sits_behind_the_door(lab):
 
     def ask_door(token, question, audit_path=None):
         del calls[:]
-        with mock.patch.object(ollama, "embed", fake_embed), mock.patch.object(ollama, "chat", fake_chat):
+        with mock.patch.object(retrieval.MODEL_CLIENT, "embed", fake_embed), mock.patch.object(answering.MODEL_CLIENT, "chat", fake_chat):
             result = lab.run([INITIALIZE_LINE, ask_line(question, 2)], token=token, store=fake_open_store, audit_path=audit_path)
         assert result.problems == [], result.problems
         return result
@@ -777,7 +779,8 @@ def the_real_pipeline_sits_behind_the_door(lab):
 
     result = ask_door("premkumar", LEAVE_QUESTION)
     reply = result.replies[1]["result"]
-    assert reply["isError"] is False and tool_text(result.replies[1]) == "Casual leave is 12 days a year. [1]\nSources: leave-policy / Casual leave", short(result.replies[1]) + " " + result.stderr
+    expected = "Document excerpts (check the full source and its scope):\n\n[1] leave-policy / Casual leave\nCasual leave is 12 days a year.\nSources: leave-policy / Casual leave"
+    assert reply["isError"] is False and tool_text(result.replies[1]) == expected, short(result.replies[1]) + " " + result.stderr
     assert names() == ["open_store", "embed", "query_points", "chat", "close"], names()
     assert calls[2][1] == build_access_filter(users["Premkumar"])
     assert len(result.audit) == 1
@@ -795,14 +798,15 @@ def the_real_pipeline_sits_behind_the_door(lab):
     assert names() == ["open_store", "close"], "a person with no record caused an embedding or a search: " + str(names())
     assert (result.audit[0]["user_id"], result.audit[0]["known_user"], result.audit[0]["status"]) == ("Nobody", False, "no_chunks")
 
-    scripted["reply"] = "NOT_FOUND"
+    scripted["reply"] = '{"source_ids":[]}'
     result = ask_door("premkumar", LEAVE_QUESTION)
     assert tool_text(result.replies[1]) == NOT_FOUND and result.replies[1]["result"]["isError"] is False
     assert result.audit[0]["status"] == "not_found"
     scripted["reply"] = "It is twelve."
     result = ask_door("premkumar", LEAVE_QUESTION)
-    assert tool_text(result.replies[1]) == "It is twelve." and result.audit[0]["cited"] == []
-    scripted["reply"] = "Casual leave is 12 days a year. [1]"
+    assert tool_text(result.replies[1]) == SYSTEM_ERROR and result.replies[1]["result"]["isError"] is True
+    assert result.audit[0]["cited"] == [] and result.audit[0]["status"].startswith("error:")
+    scripted["reply"] = '{"source_ids":[1]}'
 
     model_failure = True
     result = ask_door("premkumar", LEAVE_QUESTION)

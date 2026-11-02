@@ -25,24 +25,24 @@ class UserAdminTests(unittest.TestCase):
     def test_reset_revokes_old_token_and_changes_password(self):
         old=issue_token('Worker',now=100,key_path=self.key)
         with patch.object(revocation.time,'time',return_value=150):
-            user_admin.change('Owner',{'action':'reset','user_id':'Worker','password':'New private passphrase 2026!'})
+            user_admin.change('Owner',{'action':'reset','user_id':'Worker','password':'Reset test 2026!'})
         self.assertEqual(authentication.authenticate(old,now=151,key_path=self.key)[1],'revoked')
         new=issue_token('Worker',now=151,key_path=self.key)
         self.assertEqual(authentication.authenticate(new,now=152,key_path=self.key),('Worker',None))
-        self.assertTrue(credentials.check_credentials('Worker','New private passphrase 2026!'))
+        self.assertTrue(credentials.check_credentials('Worker','Reset test 2026!'))
         revocation.revoke_token(new)
         self.assertEqual(authentication.authenticate(new,now=152,key_path=self.key)[1],'revoked')
 
     def test_permissions_and_bad_password_leave_users_unchanged(self):
         before=self.path.read_bytes()
         with self.assertRaises(PermissionError):user_admin.change('Worker',{'action':'disable','user_id':'Worker'})
-        with self.assertRaises(ValueError):user_admin.change('Owner',{'action':'reset','user_id':'Worker','password':'short'})
+        with self.assertRaises(ValueError):user_admin.change('Owner',{'action':'reset','user_id':'Worker','password':'ab'})
         self.assertEqual(self.path.read_bytes(),before)
         self.audit.assert_not_called()
 
     def test_create_update_disable(self):
-        user_admin.change('Owner',{'action':'create','user_id':'New','role':'Intern','department':'Engineering','clearance':0,'password':'Another private passphrase!'})
-        self.assertTrue(credentials.check_credentials('New','Another private passphrase!'))
+        user_admin.change('Owner',{'action':'create','user_id':'New','role':'Intern','department':'Engineering','clearance':0,'password':'Create test 2026!'})
+        self.assertTrue(credentials.check_credentials('New','Create test 2026!'))
         user_admin.change('Owner',{'action':'update','user_id':'New','role':'Engineer','department':'Engineering','clearance':2})
         self.assertEqual(json.loads(self.path.read_text())[-1]['clearance'],2)
         user_admin.change('Owner',{'action':'disable','user_id':'New'})

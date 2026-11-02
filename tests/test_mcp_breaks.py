@@ -234,8 +234,10 @@ MISTAKES = [
 
 # Mistakes that only show when the program runs as a real process: (what, file, [(old, new)]).
 PROCESS_MISTAKES = [
-    ("the server does not move into its own folder", "src/mcp_server.py", [("        os.chdir(PROJECT_ROOT)\n", "        pass\n")]),
-    ("the server moves into the wrong folder", "src/mcp_server.py", [("PROJECT_ROOT = Path(__file__).resolve().parent.parent", "PROJECT_ROOT = Path(__file__).resolve().parent")]),
+    # Paths now come from config.py; chdir mutations are behaviorally equivalent.
+    # Mutate the actual resource boundary to retain the decoy-key protection test.
+    ("workspace paths follow the caller's folder", "src/config.py", [("return Path(__file__).resolve().parent.parent / relative", "return Path.cwd() / relative")]),
+    ("workspace paths use the wrong project root", "src/config.py", [("return Path(__file__).resolve().parent.parent / relative", "return Path(__file__).resolve().parent / relative")]),
     ("the server does not say that it started", "src/mcp_server.py", [('    note("started")\n', "")]),
     ("the server keeps its replies in a buffer", "src/mcp_server.py", [("            writer.write(encode_reply(reply))\n            writer.flush()\n", "            writer.write(encode_reply(reply))\n")]),
     ("the server exits with an error code when its input ends", "src/mcp_server.py", [("    note(\"stopped\")\n    return 0", "    note(\"stopped\")\n    return 1")]),
